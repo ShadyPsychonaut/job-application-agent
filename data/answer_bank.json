@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "answers": [
+    {
+      "id": "ans_6e0ce6ee17",
+      "intent": "expected_compensation",
+      "answer": "2000000",
+      "status": "approved",
+      "applicability": {
+        "country": [
+          "IN"
+        ],
+        "employment_type": [
+          "full_time"
+        ]
+      },
+      "verified_at": "2026-10-14",
+      "expires_at": "2027-01-12",
+      "reuse_policy": "only_when_applicable",
+      "source": "user_confirmed",
+      "created_at": "2026-10-14T14:07:49+05:30"
+    },
+    {
+      "id": "ans_63bfe1e8b4",
+      "intent": "work_authorization",
+      "answer": "Yes",
+      "status": "approved",
+      "applicability": {
+        "country": [
+          "IN"
+        ],
+        "employment_type": [
+          "full_time"
+        ]
+      },
+      "verified_at": "2026-10-14",
+      "expires_at": "2027-01-12",
+      "reuse_policy": "only_when_applicable",
+      "source": "user_confirmed",
+      "created_at": "2026-10-14T14:08:10+05:30"
+    },
+    {
+      "id": "ans_4c64b527ed",
+      "intent": "sponsorship",
+      "answer": "No",
+      "status": "approved",
+      "applicability": {
+        "country": [
+          "IN"
+        ],
+        "employment_type": [
+          "full_time"
+        ]
+      },
+      "verified_at": "2026-10-14",
+      "expires_at": "2027-01-12",
+      "reuse_policy": "only_when_applicable",
+      "source": "user_confirmed",
+      "created_at": "2026-10-14T14:08:32+05:30"
+    }
+  ]
+}

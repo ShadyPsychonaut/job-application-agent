@@ -1,0 +1,123 @@
+{
+  "company": "Amazon",
+  "title": "Software Development Engineer II, International Emerging Stores Sub-same Day",
+  "location": "Gurugram, Haryana, India",
+  "country": "IN",
+  "employment_type": "full_time",
+  "jd_url": "https://www.linkedin.com/jobs/view/software-development-engineer-ii-international-emerging-stores-sub-same-day-at-amazon-4477845127/",
+  "application_url": "https://www.linkedin.com/jobs/view/4477845127/",
+  "overall_score": null,
+  "eligibility_status": "needs_review",
+  "resume_variant": "backend",
+  "resume_path": "",
+  "notes": "Actual listing resolved from the supplied LinkedIn URL. The search keywords said 'senior robotics software engineer', but job ID 4477845127 is an Amazon Software Development Engineer II role. Backend resume is the initial suggested variant because the role focuses on scalable, low-latency distributed services. Match score is intentionally unset pending evaluation against the user's profile. Eligibility remains needs_review; do not infer work authorization from location. The public listing does not expose the application form's fields, so the fields below are generic pre-application checks retained from the starter template, not verified application questions.",
+  "source": {
+    "platform": "LinkedIn Jobs",
+    "source_search_url": "https://www.linkedin.com/jobs/search-results/?currentJobId=4477845127&keywords=senior%20robotics%20software%20engineer&origin=QUALIFICATION_LANDING&geoId=90009626",
+    "job_id": "4477845127",
+    "company_job_code": "A10574438",
+    "job_page_title": "Software Development Engineer II, International Emerging Stores Sub-same Day",
+    "seniority_level": "Mid-Senior level",
+    "posted_text_as_seen": "3 days ago (as displayed on 2026-10-13)",
+    "applicant_count_as_seen": 144,
+    "application_destination_verified": false
+  },
+  "job_description": {
+    "summary": "The Sub-Same-Day (SSD) team builds technology behind Amazon's fastest delivery promises across India and emerging marketplaces. The role focuses on services that compute and optimize the fastest reliable delivery promise for each order, with high scale, low latency, and high availability.",
+    "responsibilities": [
+      "Design, build, and operate scalable, low-latency, highly available services that power Sub-Same-Day delivery promises.",
+      "Own features end-to-end across requirements, design, implementation, testing, deployment, and ongoing operations.",
+      "Lead design discussions and align with partner teams, including Promise, transportation, and search.",
+      "Maintain operational excellence through monitoring, alarms, on-call, and defect reduction.",
+      "Investigate edge cases, improve testing, and support safe production rollouts using canaries, metrics, and dashboards.",
+      "Identify and mitigate risks and communicate progress, blockers, and tradeoffs.",
+      "Mentor SDE-I engineers, review code and designs, and help unblock junior engineers.",
+      "Contribute to the team's technical roadmap and continuous improvement."
+    ],
+    "basic_qualifications": [
+      "At least 3 years of non-internship professional software development experience.",
+      "At least 2 years of non-internship design or architecture experience involving design patterns, reliability, and scaling.",
+      "At least 1 year of software development engineer or related occupational experience.",
+      "At least 1 year designing and developing large-scale, multi-tiered, multi-threaded, embedded, or distributed applications, tools, systems, or services using C#, C++, Java, or Perl.",
+      "At least 1 year of object-oriented design experience.",
+      "Bachelor's degree or foreign equivalent in Computer Science, Engineering, Mathematics, or a related field."
+    ],
+    "preferred_qualifications": [
+      "At least 3 years across the software development lifecycle, including coding standards, code reviews, source control, build processes, testing, and operations experience.",
+      "Bachelor's degree in Computer Science or equivalent."
+    ],
+    "team_markets": [
+      "India",
+      "Australia",
+      "Brazil",
+      "Mexico",
+      "United Arab Emirates",
+      "Saudi Arabia",
+      "Singapore",
+      "Egypt",
+      "Turkey",
+      "South Africa"
+    ]
+  },
+  "application_fields_source": "Unverified. LinkedIn's public job page showed the Apply action but did not expose the actual application form fields. The fields below are only pre-application checks from the starter template and should be replaced or confirmed after opening the real form.",
+  "fields": [
+    {
+      "label": "Expected compensation",
+      "intent": "expected_compensation",
+      "required": true,
+      "type": "text",
+      "options": [],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Gurugram, Haryana, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Are you legally authorized to work in the country of this job?",
+      "intent": "work_authorization",
+      "required": true,
+      "type": "single_choice",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Gurugram, Haryana, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Do you require visa sponsorship now or in the future?",
+      "intent": "sponsorship",
+      "required": true,
+      "type": "single_choice",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Gurugram, Haryana, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Optional cover letter",
+      "intent": "cover_letter",
+      "required": false,
+      "type": "text",
+      "options": [],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Gurugram, Haryana, India"
+      },
+      "form_field_verified": false
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+# Needed only when reading PDF resumes. DOCX/TXT/MD support uses Python standard library.
+pypdf>=5.0

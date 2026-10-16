@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# Local resume text cache contains personal data
+data/resume_cache.json
+# Local resume documents are private; retain only the instructions file
+resumes/*
+!resumes/README.md
+
+# Locally extracted resume facts may contain personal education/employment data
+data/candidate_facts.json

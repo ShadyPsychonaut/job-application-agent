@@ -1,0 +1,362 @@
+{
+  "report_type": "sample_job_fit_scorecard",
+  "job_file": "examples/sample_job.json",
+  "company": "Amazon",
+  "title": "Software Development Engineer II, International Emerging Stores Sub-same Day",
+  "evaluation_mode_requested": "auto",
+  "fresh_llm_score_available": false,
+  "interpretation": "If llm_status is not_configured or fallback_to_rules, this is a local rules score and is not directly comparable to an earlier LLM-generated score.",
+  "scorecard": {
+    "scoring_version": "fit_v2_eligibility_separate",
+    "scored_at": "2026-10-13T17:28:33+00:00",
+    "score_method": "deterministic keyword/evidence rules; inspect rationale before relying on the score",
+    "overall_score": 7.28,
+    "technical_fit_score": 7.28,
+    "threshold": 8.5,
+    "passes_threshold": false,
+    "decision": "NOT_SHORTLISTED_BELOW_THRESHOLD",
+    "eligibility_status": "needs_review",
+    "eligibility_score": 6.5,
+    "hard_eligibility_block": false,
+    "recommended_resume_variant": "backend",
+    "weights": {
+      "technical_skills": 28.0,
+      "responsibility_match": 28.0,
+      "experience_evidence": 22.0,
+      "seniority_match": 11.0,
+      "domain_match": 11.0
+    },
+    "weighted_fit_categories": [
+      "technical_skills",
+      "responsibility_match",
+      "experience_evidence",
+      "seniority_match",
+      "domain_match"
+    ],
+    "component_scores": {
+      "technical_skills": 7.39,
+      "responsibility_match": 6.26,
+      "experience_evidence": 8.66,
+      "seniority_match": 7.2,
+      "domain_match": 6.93,
+      "eligibility_match": 6.5
+    },
+    "components": {
+      "technical_skills": {
+        "score": 7.39,
+        "weight": 28.0,
+        "matched_topics": [
+          {
+            "topic": "C++",
+            "profile_strength": 0.95,
+            "weighted_contribution": 1.188,
+            "job_signals": [
+              "c++"
+            ]
+          },
+          {
+            "topic": "Concurrency / multithreading",
+            "profile_strength": 0.75,
+            "weighted_contribution": 0.75,
+            "job_signals": [
+              "multi-thread"
+            ]
+          },
+          {
+            "topic": "Distributed systems / services",
+            "profile_strength": 0.88,
+            "weighted_contribution": 0.968,
+            "job_signals": [
+              "distributed",
+              "multi-tier",
+              "high availability",
+              "highly available"
+            ]
+          },
+          {
+            "topic": "Object-oriented design / patterns",
+            "profile_strength": 0.9,
+            "weighted_contribution": 0.675,
+            "job_signals": [
+              "object-oriented",
+              "design patterns"
+            ]
+          },
+          {
+            "topic": "System design / architecture",
+            "profile_strength": 0.58,
+            "weighted_contribution": 0.464,
+            "job_signals": [
+              "architecture"
+            ]
+          },
+          {
+            "topic": "Monitoring / observability",
+            "profile_strength": 0.72,
+            "weighted_contribution": 0.432,
+            "job_signals": [
+              "monitoring",
+              "metrics",
+              "dashboards",
+              "alarms",
+              "on-call"
+            ]
+          },
+          {
+            "topic": "Testing / build / CI",
+            "profile_strength": 0.72,
+            "weighted_contribution": 0.504,
+            "job_signals": [
+              "testing",
+              "build process",
+              "code review",
+              "source control"
+            ]
+          },
+          {
+            "topic": "Performance / latency",
+            "profile_strength": 0.48,
+            "weighted_contribution": 0.384,
+            "job_signals": [
+              "low-latency",
+              "low latency",
+              "latency"
+            ]
+          },
+          {
+            "topic": "Java",
+            "profile_strength": 0.35,
+            "weighted_contribution": 0.175,
+            "job_signals": [
+              "java"
+            ]
+          }
+        ],
+        "gaps": [
+          "Limited documented evidence for Performance / latency",
+          "Limited documented evidence for Java"
+        ]
+      },
+      "responsibility_match": {
+        "score": 6.26,
+        "weight": 28.0,
+        "matched_topics": [
+          {
+            "topic": "Backend/service development",
+            "profile_strength": 0.82,
+            "weighted_contribution": 0.82,
+            "job_signals": [
+              "services",
+              "distributed applications",
+              "software development",
+              "implement"
+            ]
+          },
+          {
+            "topic": "End-to-end ownership",
+            "profile_strength": 0.62,
+            "weighted_contribution": 0.62,
+            "job_signals": [
+              "end-to-end",
+              "own features",
+              "requirements, design, implementation"
+            ]
+          },
+          {
+            "topic": "Architecture / scale / reliability",
+            "profile_strength": 0.58,
+            "weighted_contribution": 0.522,
+            "job_signals": [
+              "architecture",
+              "scaling",
+              "scalable",
+              "reliability",
+              "high availability"
+            ]
+          },
+          {
+            "topic": "Production operations / reliability",
+            "profile_strength": 0.72,
+            "weighted_contribution": 0.648,
+            "job_signals": [
+              "production",
+              "on-call",
+              "operational excellence",
+              "alarms",
+              "defect reduction"
+            ]
+          },
+          {
+            "topic": "Cross-functional collaboration",
+            "profile_strength": 0.78,
+            "weighted_contribution": 0.546,
+            "job_signals": [
+              "partner teams",
+              "communicate progress",
+              "align with"
+            ]
+          },
+          {
+            "topic": "Technical leadership / mentoring",
+            "profile_strength": 0.25,
+            "weighted_contribution": 0.2,
+            "job_signals": [
+              "mentor",
+              "lead design",
+              "unblock junior"
+            ]
+          },
+          {
+            "topic": "Testing / safe delivery",
+            "profile_strength": 0.72,
+            "weighted_contribution": 0.504,
+            "job_signals": [
+              "testing",
+              "deployment",
+              "code review",
+              "defect"
+            ]
+          },
+          {
+            "topic": "Performance optimization",
+            "profile_strength": 0.5,
+            "weighted_contribution": 0.4,
+            "job_signals": [
+              "low-latency",
+              "low latency",
+              "optimize"
+            ]
+          }
+        ],
+        "gaps": [
+          "Limited documented evidence for Technical leadership / mentoring"
+        ]
+      },
+      "experience_evidence": {
+        "score": 8.66,
+        "weight": 22.0,
+        "reasons": [
+          "Years-of-experience fit: 3 recorded vs 3 extracted minimum."
+        ],
+        "flags": [
+          "Review experience evidence for mentoring; the JD emphasizes it.",
+          "Resume text lists B.Tech Mechanical Engineering; the fact was locally extracted and is pending review."
+        ]
+      },
+      "seniority_match": {
+        "score": 7.2,
+        "weight": 11.0,
+        "reasons": [
+          "Role appears mid-level; broadly plausible, with some ownership/mentoring expectations to verify."
+        ]
+      },
+      "domain_match": {
+        "score": 6.93,
+        "weight": 11.0,
+        "matched_domains": [
+          {
+            "topic": "Backend / platform / distributed services",
+            "profile_strength": 0.88,
+            "weighted_contribution": 0.88,
+            "job_signals": [
+              "distributed",
+              "services",
+              "high availability",
+              "scalable"
+            ]
+          },
+          {
+            "topic": "Logistics / supply chain",
+            "profile_strength": 0.72,
+            "weighted_contribution": 0.72,
+            "job_signals": [
+              "delivery",
+              "transportation"
+            ]
+          },
+          {
+            "topic": "E-commerce / consumer products",
+            "profile_strength": 0.62,
+            "weighted_contribution": 0.62,
+            "job_signals": [
+              "marketplace"
+            ]
+          },
+          {
+            "topic": "Embedded / device systems",
+            "profile_strength": 0.55,
+            "weighted_contribution": 0.55,
+            "job_signals": [
+              "embedded"
+            ]
+          }
+        ],
+        "recommended_resume_variant": "backend"
+      },
+      "eligibility_match": {
+        "score": 6.5,
+        "included_in_overall_score": false,
+        "status": "needs_review",
+        "reason": "Location is within the configured target countries, but legal work authorization is not confirmed.",
+        "flags": [
+          "Eligibility is uncertain. Do not infer legal work authorization from the job location or residence alone."
+        ]
+      }
+    },
+    "strong_matches": [
+      "C++",
+      "Concurrency / multithreading",
+      "Distributed systems / services",
+      "Object-oriented design / patterns",
+      "System design / architecture",
+      "Monitoring / observability",
+      "Testing / build / CI",
+      "Backend/service development",
+      "End-to-end ownership",
+      "Architecture / scale / reliability",
+      "Production operations / reliability",
+      "Cross-functional collaboration",
+      "Testing / safe delivery",
+      "Performance optimization"
+    ],
+    "gaps_and_flags": [
+      "Limited documented evidence for Performance / latency",
+      "Limited documented evidence for Java",
+      "Limited documented evidence for Technical leadership / mentoring",
+      "Review experience evidence for mentoring; the JD emphasizes it.",
+      "Resume text lists B.Tech Mechanical Engineering; the fact was locally extracted and is pending review.",
+      "Eligibility is uncertain. Do not infer legal work authorization from the job location or residence alone."
+    ],
+    "evidence_map": [],
+    "evidence_quality": {
+      "confidence": "low",
+      "confidence_score": 0.3,
+      "evidence_items": 0,
+      "supported_items": 0,
+      "support_rate": null,
+      "resume_text_provided_to_scorer": false,
+      "note": "Rule mode uses configured strengths and keyword matches; it does not semantically ground each score in resume excerpts."
+    },
+    "required_years_detected": 3.0,
+    "profile_years_experience": 3.0,
+    "note": "This is a role-fit estimate, not a hiring probability. Legal/work authorization is reported separately and never enters the fit score.",
+    "resume_sources": {
+      "resume_count": 1,
+      "filenames": [
+        "backend_resume.pdf"
+      ],
+      "refreshed_count": 0,
+      "cached_count": 1,
+      "cache_path": "/mnt/data/job-application-agent/data/resume_cache.json",
+      "message": "Resumes loaded; cached text was reused for unchanged files."
+    },
+    "resume_text_shared_with_llm": false,
+    "llm_status": "not_configured",
+    "candidate_facts": {
+      "path": "data/candidate_facts.json",
+      "review_status": "needs_review",
+      "education_facts_detected": 1,
+      "years_statements_detected": 1
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "expected_compensation": null,
+  "work_authorization_policy": "reuse_previously_verified_answer_only_when_applicable",
+  "require_user_approval_before_submission": true,
+  "answer_freshness_days": 90,
+  "notes": "No expected compensation or work-authorization answer is prefilled. Add only user-confirmed facts.",
+  "candidate_profile": {
+    "years_experience": 3,
+    "default_resume_variant": "backend",
+    "education_status": "bachelor_degree_documented",
+    "evidence_strength": {
+      "cpp": 0.95,
+      "linux": 0.85,
+      "concurrency": 0.75,
+      "distributed_systems": 0.88,
+      "object_oriented_design": 0.9,
+      "system_design": 0.58,
+      "database": 0.78,
+      "messaging": 0.72,
+      "containers": 0.72,
+      "observability": 0.72,
+      "apis": 0.72,
+      "testing_ci": 0.72,
+      "performance": 0.48,
+      "robotics": 0.95,
+      "ros2": 0.62,
+      "fleet_management": 0.92,
+      "simulation": 0.92,
+      "autonomy_algorithms": 0.25,
+      "cloud": 0.25,
+      "java": 0.35
+    },
+    "responsibility_strength": {
+      "backend_delivery": 0.82,
+      "ownership_lifecycle": 0.62,
+      "architecture_scaling": 0.58,
+      "production_operations": 0.72,
+      "cross_team": 0.78,
+      "mentoring_leadership": 0.25,
+      "testing_release": 0.72,
+      "fleet_task_orchestration": 0.92,
+      "simulation_tooling": 0.92,
+      "robotics_integration": 0.9,
+      "performance_tuning": 0.5
+    },
+    "domain_strength": {
+      "robotics": 0.95,
+      "backend_platform": 0.88,
+      "logistics": 0.72,
+      "ecommerce": 0.62,
+      "embedded": 0.55,
+      "trading": 0.25,
+      "healthcare": 0.35
+    },
+    "eligibility": {
+      "preferred_countries": [
+        "IN"
+      ],
+      "work_authorization_by_country": {
+        "US": "requires_sponsorship",
+        "IN": "unknown"
+      }
+    },
+    "evidence_notes": [
+      "Three years of professional modern C++ development in production distributed systems.",
+      "Team contributor on multi-robot fleet-management systems; experience includes task orchestration, scheduling/reservation support, communication interfaces, monitoring metrics, and simulator GUI/tooling.",
+      "Built ImGui simulation/editor tools including command-pattern undo/redo, multi-select, drag/drop, log replay integration, and CLI tooling.",
+      "Hands-on with ROS 2 and Nav2 through a personal multi-robot simulation project; treat this as project experience, not extensive production autonomy algorithm ownership.",
+      "Do not claim primary ownership of the full fleet codebase or strong independent ownership of autonomy planning algorithms.",
+      "User has previously stated they are not authorized to work in the US and would need sponsorship; India work authorization remains unconfirmed in this agent configuration."
+    ],
+    "experience_strength": {
+      "system_design": 0.58,
+      "ownership": 0.62,
+      "mentoring": 0.25,
+      "production_operations": 0.72
+    },
+    "resume_files": [],
+    "profile_data_provenance": "Evidence strengths and notes were manually seeded from career details shared in conversation; they were not extracted from a resume. The saved backend resume in resumes/backend_resume.pdf is now discovered and read by the resume loader. Replace it if a newer version exists. A separate robotics resume has not been added. Education and stated-experience facts are now extracted locally into data/candidate_facts.json with source hashes and must be reviewed before being promoted into this profile.",
+    "education": [
+      {
+        "degree": "B.Tech",
+        "field": "Mechanical Engineering",
+        "minor": "Information Technology",
+        "institution": "Delhi Technological University (formerly DCE)",
+        "graduation_year": 2023,
+        "gpa": "8.04/10",
+        "bachelor_level": true,
+        "source_filename": "backend_resume.pdf",
+        "source_sha256": "eae169b8bb31b3f1a588448dc1b608632dd079455dfca43509565558991688b6",
+        "source_section": "Education",
+        "evidence_excerpt": "B.Tech in Mechanical Engineering (Minor in IT) | GPA: 8.04/10",
+        "verification_status": "extracted_needs_review"
+      }
+    ],
+    "resume_stated_years_experience": [
+      {
+        "years_experience": 3.0,
+        "source_filename": "backend_resume.pdf",
+        "source_sha256": "eae169b8bb31b3f1a588448dc1b608632dd079455dfca43509565558991688b6",
+        "source_section": "Summary",
+        "evidence_excerpt": "with 3 years of experience",
+        "verification_status": "extracted_needs_review"
+      },
+      {
+        "years_experience": 3.0,
+        "source_filename": "robotics_resume.pdf",
+        "source_sha256": "3d9497682700d52f464dc4d36378d5052747ff768d3be3041c4d41a8733d762a",
+        "source_section": "Summary",
+        "evidence_excerpt": "with 3 years of experience",
+        "verification_status": "extracted_needs_review"
+      }
+    ],
+    "profile_facts_review_status": "approved_from_resume_extraction",
+    "profile_facts_reviewed_at": "2026-10-14T07:45:32+00:00"
+  },
+  "job_scoring": {
+    "tailoring_threshold": 7.0,
+    "weights": {
+      "technical_skills": 28,
+      "responsibility_match": 28,
+      "experience_evidence": 22,
+      "seniority_match": 11,
+      "domain_match": 11
+    },
+    "strict_threshold": true,
+    "method": "llm_assisted_with_rules_fallback",
+    "notes": "Technical/role fit weights total 100%. Work authorization and sponsorship are separate eligibility gates and do not raise or lower the technical-fit score."
+  }
+}
