@@ -10,4 +10,4 @@ resumes/*
 !resumes/README.md
 
 # Locally extracted resume facts may contain personal education/employment data
-data/candidate_facts.json
+data/*
