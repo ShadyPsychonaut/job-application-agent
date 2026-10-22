@@ -648,6 +648,31 @@ def _remove_false_alternative_language_gaps(items: list[str], job: dict[str, Any
     return filtered
 
 
+def _remove_llm_eligibility_claims(items: list[str]) -> list[str]:
+    """Remove LLM-generated legal/work-authorization claims from fit flags.
+
+    Eligibility is calculated locally from the approved answer/profile data. The
+    local eligibility assessment already contributes its own flags to the
+    scorecard, so repeating model-generated claims can create contradictions such
+    as `eligible_known` alongside `work authorization remains unknown`.
+    """
+    eligibility_markers = (
+        "work authorization", "work authorisation", "work-authorisation",
+        "work-authorization", "authorized to work", "authorised to work",
+        "legally eligible to work", "right to work", "visa sponsorship",
+        "visa sponsor", "sponsorship status", "work permit",
+    )
+    filtered: list[str] = []
+    for item in items:
+        if not isinstance(item, str):
+            continue
+        normalized = re.sub(r"[-_/]+", " ", item.casefold())
+        if any(marker in normalized for marker in eligibility_markers):
+            continue
+        filtered.append(item)
+    return filtered
+
+
 def score_job(
     job: dict[str, Any],
     profile: dict[str, Any] | None = None,
@@ -747,9 +772,19 @@ def score_job(
         for evidence_item in scorecard["evidence_map"]:
             if isinstance(evidence_item, dict):
                 evidence_item["source_variant"] = "profile_only"
-    scorecard["uncertainties"] = _merge_unique(assessment.get("uncertainties", []))
-    scorecard["uncertainties"] = _remove_false_alternative_language_gaps(scorecard["uncertainties"], job)
-    llm_gaps = _remove_false_alternative_language_gaps(assessment.get("gaps_and_flags", []), job)
+    # Legal/work-authorization status comes only from the deterministic local
+    # eligibility gate. Ignore model-generated claims on this topic and retain
+    # the gate's own flags already present in the rules scorecard.
+    scorecard["uncertainties"] = _merge_unique(
+        _remove_false_alternative_language_gaps(
+            _remove_llm_eligibility_claims(assessment.get("uncertainties", [])),
+            job,
+        )
+    )
+    llm_gaps = _remove_false_alternative_language_gaps(
+        _remove_llm_eligibility_claims(assessment.get("gaps_and_flags", [])),
+        job,
+    )
     scorecard["gaps_and_flags"] = _merge_unique(
         _remove_false_alternative_language_gaps(scorecard.get("gaps_and_flags", []), job),
         llm_gaps,

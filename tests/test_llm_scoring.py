@@ -66,7 +66,7 @@ class LLMScoringTests(unittest.TestCase):
         self.assertEqual(result["component_scores"]["eligibility_match"], 10.0)
         self.assertEqual(result["recommended_resume_variant"], "robotics")
         self.assertIn("Degree status is not configured.", result["gaps_and_flags"])
-        self.assertEqual(result["decision"], "TAILOR_RESUME_ELIGIBILITY_REVIEW")
+        self.assertEqual(result["decision"], "TAILOR_RESUME")
         self.assertNotIn("eligibility_match", result["weights"])
         self.assertEqual(result["evidence_map"][0]["source_variant"], "profile_only")
         self.assertIn(result["evidence_quality"]["confidence"], {"low", "moderate", "high"})

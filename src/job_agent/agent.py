@@ -61,10 +61,10 @@ def _update_application_status(application: dict[str, Any], pending_data: dict[s
             if outstanding else "Role remains blocked by the eligibility gate"
         )
     else:
-        application["status"] = "awaiting_user_input" if outstanding else "ready_for_review"
+        application["status"] = "awaiting_user_input" if outstanding else "resume_tailoring_pending"
         application["next_action"] = (
             "Answer the pending required fields"
-            if outstanding else "Review the prepared answers and resume, then submit manually"
+            if outstanding else "Required application fields are resolved; tailor and review the selected resume and optional cover letter before submitting manually"
         )
     application["updated_at"] = now_iso()
 
@@ -174,6 +174,149 @@ def _sync_scorecard_to_application(
     application["updated_at"] = now_iso()
 
 
+def _prepare_application_fields_for_existing(job: dict[str, Any], application: dict[str, Any], pending_data: dict[str, Any]) -> list[str]:
+    """Prepare fields for an existing shortlisted record without duplicating answers/questions."""
+    app_id = application["application_id"]
+    answers = application.setdefault("answers", [])
+    field_results: list[dict[str, Any]] = []
+    pending_ids: list[str] = []
+
+    app_pending = [
+        q for q in pending_data.get("questions", [])
+        if q.get("application_id") == app_id and q.get("status") == "awaiting_user"
+    ]
+
+    def answer_for_field(label: str, intent: str) -> dict[str, Any] | None:
+        label_key = label.strip().casefold()
+        # Prefer an exact field-label match. For reusable profile intents, matching
+        # the intent also protects an answer collected by the earlier intake phase.
+        for answer in answers:
+            if isinstance(answer, dict) and str(answer.get("field_label", "")).strip().casefold() == label_key:
+                return answer
+        if intent in PROFILE_INTAKE_INTENTS:
+            for answer in answers:
+                if isinstance(answer, dict) and answer.get("intent") == intent:
+                    return answer
+        return None
+
+    def question_for_field(label: str, intent: str) -> dict[str, Any] | None:
+        label_key = label.strip().casefold()
+        for question in app_pending:
+            if str(question.get("field_label", "")).strip().casefold() == label_key:
+                return question
+        if intent in PROFILE_INTAKE_INTENTS:
+            for question in app_pending:
+                if question.get("intent") == intent:
+                    return question
+        return None
+
+    for index, field in enumerate(job.get("fields", []), start=1):
+        if not isinstance(field, dict) or not field.get("label"):
+            raise ValueError(f"Field #{index} must be an object with a non-empty 'label'.")
+
+        label = str(field["label"]).strip()
+        required = bool(field.get("required", True))
+        intent = classify_intent(label, field.get("intent"))
+        existing_answer = answer_for_field(label, intent)
+        if existing_answer is not None:
+            field_results.append({
+                "field_label": label,
+                "status": "skipped_optional" if existing_answer.get("source") == "skipped_optional" else "resolved",
+                "source": existing_answer.get("source", "existing_application_answer"),
+            })
+            continue
+
+        existing_question = question_for_field(label, intent)
+        if existing_question is not None:
+            pending_ids.append(existing_question["question_id"])
+            field_results.append({
+                "field_label": label,
+                "status": "awaiting_user_input",
+                "question_id": existing_question["question_id"],
+                "reason": existing_question.get("reason", "Awaiting your answer."),
+            })
+            continue
+
+        context = _context_for_field(job, field)
+        result = resolve_answer(intent, context)
+        options = field.get("options", []) or []
+        if result.get("status") == "resolved" and options and result.get("answer") not in options:
+            result = {
+                "status": "needs_user_input",
+                "reason": "The stored answer does not match this form's allowed choices.",
+                "intent": intent,
+            }
+
+        if result.get("status") == "resolved":
+            answer_entry = {
+                "field_label": label,
+                "intent": intent,
+                "answer": result.get("answer"),
+                "source": result.get("source", "answer_bank"),
+                "answer_id": result.get("answer_id"),
+                "required": required,
+            }
+            answers.append(answer_entry)
+            field_results.append({
+                "field_label": label,
+                "status": "resolved",
+                "source": answer_entry["source"],
+            })
+            continue
+
+        if not required:
+            answers.append({
+                "field_label": label,
+                "intent": intent,
+                "answer": None,
+                "source": "skipped_optional",
+                "required": False,
+            })
+            field_results.append({"field_label": label, "status": "skipped_optional"})
+            continue
+
+        question_id = f"q_{uuid.uuid4().hex[:10]}"
+        question = {
+            "question_id": question_id,
+            "application_id": app_id,
+            "company": job["company"],
+            "job_title": job["title"],
+            "jd_url": str(job.get("jd_url", "")),
+            "field_label": label,
+            "intent": intent,
+            "required": True,
+            "field_type": field.get("type", "text"),
+            "options": options,
+            "context": context,
+            "status": "awaiting_user",
+            "reason": result.get("reason", "No approved answer available."),
+            "created_at": now_iso(),
+            "answered_at": None,
+            "answer": None,
+            "reuse_approved": False,
+            "profile_intake": False,
+        }
+        pending_data.setdefault("questions", []).append(question)
+        app_pending.append(question)
+        pending_ids.append(question_id)
+        field_results.append({
+            "field_label": label,
+            "status": "awaiting_user_input",
+            "question_id": question_id,
+            "reason": question["reason"],
+        })
+
+    application["field_results"] = field_results
+    _update_application_status(application, pending_data)
+    application["next_action"] = (
+        "Answer pending required application fields, then continue to resume tailoring."
+        if application.get("pending_required_count", 0)
+        else "Application fields are resolved. Tailor and review the backend resume and optional cover letter, then submit manually."
+    )
+    application["updated_at"] = now_iso()
+    return pending_ids
+
+
 def process_job(job: dict[str, Any], force_fields: bool = False, scorecard: dict[str, Any] | None = None) -> dict[str, Any]:
     required_keys = ["company", "title", "jd_url", "fields"]
     missing = [key for key in required_keys if key not in job]
@@ -204,32 +347,57 @@ def process_job(job: dict[str, Any], force_fields: bool = False, scorecard: dict
                 or existing.get("score_decision", "")
             ).upper()
 
-            if new_decision in {
-                "NOT_SHORTLISTED_BELOW_THRESHOLD",
-                "SKIP_HARD_ELIGIBILITY_BLOCK",
-            }:
+            if (
+                scorecard.get("hard_eligibility_block")
+                or new_decision == "SKIP_HARD_ELIGIBILITY_BLOCK"
+            ):
                 new_ids = _queue_profile_intake_questions(
                     job, existing, pending_data
                 )
                 _update_application_status(existing, pending_data)
 
             elif (
-                existing_status.startswith("not_shortlisted")
+                not scorecard.get("passes_threshold", False)
+                or new_decision == "NOT_SHORTLISTED_BELOW_THRESHOLD"
+            ):
+                new_ids = _queue_profile_intake_questions(
+                    job, existing, pending_data
+                )
+                _update_application_status(existing, pending_data)
+
+            elif (
+                existing_status == "score_eligible_needs_application_refresh"
+                or existing_status.startswith("not_shortlisted")
                 or existing_status.startswith("blocked_eligibility")
             ):
-                # The score now passes the threshold, but this duplicate path
-                # has not rebuilt the application-specific prompts.
-                existing["status"] = "score_eligible_needs_application_refresh"
-                existing["next_action"] = (
-                    "The refreshed score passes the threshold; refresh "
-                    "application-specific fields before review or submission."
+                new_ids = _prepare_application_fields_for_existing(
+                    job, existing, pending_data
                 )
-                existing["pending_required_count"] = _pending_count(
-                    existing["application_id"], pending_data
-                )
-                existing["updated_at"] = now_iso()
 
-            # Save regardless of whether new questions were added.
+            elif existing_status in {
+                "processing",
+                "awaiting_user_input",
+                "ready_for_review",
+                "resume_tailoring_pending",
+            }:
+                new_ids = _prepare_application_fields_for_existing(
+                    job, existing, pending_data
+                )
+
+            elif not existing.get("field_results") and existing_status not in {
+                "applied",
+                "submitted",
+                "application_submitted",
+                "rejected",
+                "withdrawn",
+                "interviewing",
+                "offer",
+            }:
+                new_ids = _prepare_application_fields_for_existing(
+                    job, existing, pending_data
+                )
+
+            # Persist even when there are no new questions.
             save_pending(pending_data)
             save_applications(apps_data)
             upsert_log(existing)

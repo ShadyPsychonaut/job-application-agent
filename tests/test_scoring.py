@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from job_agent.scoring import score_job, _remove_false_alternative_language_gaps  # noqa: E402
+from job_agent.scoring import score_job, _remove_false_alternative_language_gaps, _remove_llm_eligibility_claims  # noqa: E402
 from job_agent.agent import process_job  # noqa: E402
 
 
@@ -189,6 +189,61 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(result["status"], "duplicate")
         self.assertTrue(result["pending_question_ids"])
         self.assertTrue(any(q.get("application_id") == "app_existing" for q in pending["questions"]))
+
+
+
+    def test_llm_eligibility_warnings_do_not_conflict_with_local_gate(self):
+        profile = json.loads(json.dumps(self.profile))
+        profile["candidate_profile"].setdefault("eligibility", {}).setdefault(
+            "work_authorization_by_country", {}
+        )["IN"] = "authorized"
+        job = {
+            "company": "Example",
+            "title": "C++ Backend Engineer",
+            "country": "IN",
+            "job_description": {"summary": "Build C++ distributed backend services."},
+        }
+        documents = [{
+            "filename": "backend_resume.docx", "variant": "backend",
+            "sha256": "test-hash", "text": "C++ distributed backend services",
+        }]
+        facts = {"review_status": "approved", "extracted_facts": {"education": [], "years_experience": []}}
+        assessment = {
+            "component_scores": {
+                "technical_skills": 8.0,
+                "responsibility_match": 7.0,
+                "experience_evidence": 7.0,
+                "seniority_match": 6.5,
+                "domain_match": 6.0,
+            },
+            "recommended_resume_variant": "backend",
+            "summary": "Strong fit for backend service work.",
+            "gaps_and_flags": [
+                "Work-authorization status for India remains unknown",
+                "Limited documented evidence for mentoring",
+            ],
+            "uncertainties": ["Legal work authorization is not confirmed"],
+            "evidence_map": [],
+        }
+        with patch("job_agent.scoring.load_resume_documents", return_value={"documents": documents, "status": {"resume_count": 1, "filenames": ["backend_resume.docx"]}}), \
+             patch("job_agent.scoring.persist_candidate_facts", return_value=facts), \
+             patch("job_agent.scoring.score_with_groq", return_value=assessment):
+            result = score_job(job, profile, mode="llm")
+
+        self.assertEqual(result["eligibility_status"], "eligible_known")
+        self.assertFalse(any("work authorization" in flag.casefold() for flag in result["gaps_and_flags"]))
+        self.assertFalse(any("work authorization" in item.casefold() for item in result["uncertainties"]))
+        self.assertIn("Limited documented evidence for mentoring", result["gaps_and_flags"])
+
+    def test_llm_work_authorization_warnings_are_suppressed_from_fit_flags(self):
+        flags = [
+            "Work-authorization status for India remains unknown",
+            "Eligibility is uncertain. Do not infer legal work authorization from location.",
+            "Limited documented evidence for performance / latency",
+            "Candidate may need visa sponsorship for the role",
+        ]
+        result = _remove_llm_eligibility_claims(flags)
+        self.assertEqual(result, ["Limited documented evidence for performance / latency"])
 
     def test_alternative_language_is_not_reported_as_a_gap_when_cpp_is_accepted(self):
         job = {"title": "Software Development Engineer II", "job_description": {
