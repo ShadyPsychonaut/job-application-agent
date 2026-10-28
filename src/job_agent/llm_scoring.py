@@ -4,6 +4,7 @@ Uses the stdlib HTTP client and Structured Outputs, so the base project needs no
 OpenAI SDK. API keys are read from the environment or a local .env file. API calls
 use store=false; prompts and resume text are not written to the application log.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,7 +32,12 @@ def load_local_env() -> None:
             continue
         key, value = line.split("=", 1)
         key, value = key.strip(), value.strip()
-        if value and len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        if (
+            value
+            and len(value) >= 2
+            and value[0] == value[-1]
+            and value[0] in {'"', "'"}
+        ):
             value = value[1:-1]
         if key:
             os.environ.setdefault(key, value)
@@ -39,13 +45,22 @@ def load_local_env() -> None:
 
 def _redact_contact_details(text: str) -> str:
     """Remove contact coordinates that are not useful for skill-fit evaluation."""
-    text = re.sub(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[EMAIL REDACTED]", text, flags=re.I)
-    text = re.sub(r"https?://(?:www\.)?(?:linkedin\.com|github\.com)/[^\s|]+", "[PROFILE URL REDACTED]", text, flags=re.I)
+    text = re.sub(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[EMAIL REDACTED]", text, flags=re.I
+    )
+    text = re.sub(
+        r"https?://(?:www\.)?(?:linkedin\.com|github\.com)/[^\s|]+",
+        "[PROFILE URL REDACTED]",
+        text,
+        flags=re.I,
+    )
+
     # Conservative phone pattern: at least 9 digits, with optional separators/country prefix.
     def redact_phone(match: re.Match[str]) -> str:
         value = match.group(0)
         digits = sum(ch.isdigit() for ch in value)
         return "[PHONE REDACTED]" if digits >= 9 else value
+
     text = re.sub(r"(?<![A-Za-z])\+?\d[\d ()-]{7,}\d(?![A-Za-z])", redact_phone, text)
     return text
 
@@ -55,13 +70,40 @@ def _score_schema() -> dict[str, Any]:
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "category": {"type": "string", "enum": ["technical_skills", "responsibility_match", "experience_evidence", "seniority_match", "domain_match"]},
+            "category": {
+                "type": "string",
+                "enum": [
+                    "technical_skills",
+                    "responsibility_match",
+                    "experience_evidence",
+                    "seniority_match",
+                    "domain_match",
+                ],
+            },
             "requirement": {"type": "string"},
             "resume_evidence": {"type": "string"},
-            "assessment": {"type": "string", "enum": ["strong", "partial", "missing", "unclear"]},
-            "source_variant": {"type": "string", "enum": ["robotics", "backend", "hybrid", "unspecified", "profile_only"]},
+            "assessment": {
+                "type": "string",
+                "enum": ["strong", "partial", "missing", "unclear"],
+            },
+            "source_variant": {
+                "type": "string",
+                "enum": [
+                    "robotics",
+                    "backend",
+                    "hybrid",
+                    "unspecified",
+                    "profile_only",
+                ],
+            },
         },
-        "required": ["category", "requirement", "resume_evidence", "assessment", "source_variant"],
+        "required": [
+            "category",
+            "requirement",
+            "resume_evidence",
+            "assessment",
+            "source_variant",
+        ],
     }
     return {
         "type": "object",
@@ -72,20 +114,44 @@ def _score_schema() -> dict[str, Any]:
                 "additionalProperties": False,
                 "properties": {
                     "technical_skills": {"type": "number", "minimum": 0, "maximum": 10},
-                    "responsibility_match": {"type": "number", "minimum": 0, "maximum": 10},
-                    "experience_evidence": {"type": "number", "minimum": 0, "maximum": 10},
+                    "responsibility_match": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10,
+                    },
+                    "experience_evidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10,
+                    },
                     "seniority_match": {"type": "number", "minimum": 0, "maximum": 10},
                     "domain_match": {"type": "number", "minimum": 0, "maximum": 10},
                 },
-                "required": ["technical_skills", "responsibility_match", "experience_evidence", "seniority_match", "domain_match"],
+                "required": [
+                    "technical_skills",
+                    "responsibility_match",
+                    "experience_evidence",
+                    "seniority_match",
+                    "domain_match",
+                ],
             },
             "evidence_map": {"type": "array", "items": evidence_item},
-            "recommended_resume_variant": {"type": "string", "enum": ["robotics", "backend", "hybrid", "unspecified"]},
+            "recommended_resume_variant": {
+                "type": "string",
+                "enum": ["robotics", "backend", "hybrid", "unspecified"],
+            },
             "summary": {"type": "string"},
             "gaps_and_flags": {"type": "array", "items": {"type": "string"}},
             "uncertainties": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["component_scores", "evidence_map", "recommended_resume_variant", "summary", "gaps_and_flags", "uncertainties"],
+        "required": [
+            "component_scores",
+            "evidence_map",
+            "recommended_resume_variant",
+            "summary",
+            "gaps_and_flags",
+            "uncertainties",
+        ],
     }
 
 
@@ -94,7 +160,9 @@ def _json_output_from_response(response: dict[str, Any]) -> dict[str, Any]:
     choices = response.get("choices")
     if not isinstance(choices, list) or not choices:
         error = response.get("error")
-        raise LLMScoringError(f"Groq response did not contain choices: {error or 'unknown response'}")
+        raise LLMScoringError(
+            f"Groq response did not contain choices: {error or 'unknown response'}"
+        )
 
     message = choices[0].get("message", {})
     content = message.get("content")
@@ -107,21 +175,42 @@ def _json_output_from_response(response: dict[str, Any]) -> dict[str, Any]:
     try:
         parsed = json.loads(content)
     except json.JSONDecodeError as exc:
-        raise LLMScoringError("Groq returned invalid JSON. Try again or change the model.") from exc
+        raise LLMScoringError(
+            "Groq returned invalid JSON. Try again or change the model."
+        ) from exc
     if not isinstance(parsed, dict):
         raise LLMScoringError("Groq response was not a JSON object.")
     return parsed
 
 
 def _validate_assessment(data: dict[str, Any]) -> dict[str, Any]:
-    expected = {"technical_skills", "responsibility_match", "experience_evidence", "seniority_match", "domain_match"}
+    expected = {
+        "technical_skills",
+        "responsibility_match",
+        "experience_evidence",
+        "seniority_match",
+        "domain_match",
+    }
     scores = data.get("component_scores")
     if not isinstance(scores, dict) or set(scores) != expected:
-        raise LLMScoringError("LLM response has missing or unexpected component scores.")
+        raise LLMScoringError(
+            "LLM response has missing or unexpected component scores."
+        )
     for key, value in scores.items():
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= float(value) <= 10:
-            raise LLMScoringError(f"Invalid score for {key}; expected a number from 0 to 10.")
-    if data.get("recommended_resume_variant") not in {"robotics", "backend", "hybrid", "unspecified"}:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not 0 <= float(value) <= 10
+        ):
+            raise LLMScoringError(
+                f"Invalid score for {key}; expected a number from 0 to 10."
+            )
+    if data.get("recommended_resume_variant") not in {
+        "robotics",
+        "backend",
+        "hybrid",
+        "unspecified",
+    }:
         raise LLMScoringError("Invalid resume variant in model response.")
     if not isinstance(data.get("evidence_map"), list):
         raise LLMScoringError("LLM response evidence_map must be a list.")
@@ -131,20 +220,34 @@ def _validate_assessment(data: dict[str, Any]) -> dict[str, Any]:
             raise LLMScoringError("Malformed item in LLM evidence_map.")
         if evidence.get("category") not in expected:
             raise LLMScoringError("Evidence-map item has an invalid category.")
-        if evidence.get("assessment") not in {"strong", "partial", "missing", "unclear"}:
+        if evidence.get("assessment") not in {
+            "strong",
+            "partial",
+            "missing",
+            "unclear",
+        }:
             raise LLMScoringError("Evidence-map item has an invalid assessment.")
         if evidence.get("source_variant") not in valid_sources:
             raise LLMScoringError("Evidence-map item has an invalid source variant.")
-        if not isinstance(evidence.get("requirement"), str) or not evidence["requirement"].strip():
-            raise LLMScoringError("Evidence-map requirement must be a non-empty string.")
+        if (
+            not isinstance(evidence.get("requirement"), str)
+            or not evidence["requirement"].strip()
+        ):
+            raise LLMScoringError(
+                "Evidence-map requirement must be a non-empty string."
+            )
         if not isinstance(evidence.get("resume_evidence"), str):
             raise LLMScoringError("Evidence-map resume_evidence must be a string.")
     for key in ("summary",):
         if not isinstance(data.get(key), str):
             raise LLMScoringError(f"LLM response field {key} must be a string.")
     for key in ("gaps_and_flags", "uncertainties"):
-        if not isinstance(data.get(key), list) or not all(isinstance(x, str) for x in data[key]):
-            raise LLMScoringError(f"LLM response field {key} must be a list of strings.")
+        if not isinstance(data.get(key), list) or not all(
+            isinstance(x, str) for x in data[key]
+        ):
+            raise LLMScoringError(
+                f"LLM response field {key} must be a list of strings."
+            )
     return data
 
 
@@ -169,15 +272,28 @@ def score_with_groq(
             "A Groq API key is separate from a ChatGPT subscription."
         )
 
-    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile"
-    base_url = os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1").strip().rstrip("/")
+    model = (
+        os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+        or "llama-3.3-70b-versatile"
+    )
+    base_url = (
+        os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1").strip().rstrip("/")
+    )
     candidate = profile.get("candidate_profile", {})
     candidate_context = {
         "years_experience": candidate.get("years_experience"),
         "education_status": candidate.get("education_status", "unknown"),
-        "education_facts_from_local_resume_extraction": candidate.get("resume_extracted_education", candidate.get("education", [])),
-        "resume_facts_review_status": candidate.get("resume_facts_review_status", candidate.get("profile_facts_review_status", "unknown")),
-        "resume_stated_years_experience": candidate.get("resume_extracted_years_experience", candidate.get("resume_stated_years_experience", [])),
+        "education_facts_from_local_resume_extraction": candidate.get(
+            "resume_extracted_education", candidate.get("education", [])
+        ),
+        "resume_facts_review_status": candidate.get(
+            "resume_facts_review_status",
+            candidate.get("profile_facts_review_status", "unknown"),
+        ),
+        "resume_stated_years_experience": candidate.get(
+            "resume_extracted_years_experience",
+            candidate.get("resume_stated_years_experience", []),
+        ),
         "evidence_notes": candidate.get("evidence_notes", []),
         "evidence_strength": candidate.get("evidence_strength", {}),
         "responsibility_strength": candidate.get("responsibility_strength", {}),
@@ -188,22 +304,40 @@ def score_with_groq(
     }
     resume_context: list[dict[str, str]] = []
     for doc in resume_documents:
-        resume_context.append({
-            "filename": doc.get("filename", "resume") if include_resume_text else f"resume_{len(resume_context) + 1}",
-            "variant": doc.get("variant", "unspecified"),
-            "text": _redact_contact_details(doc.get("text", ""))[:18000] if include_resume_text else "[Omitted: local privacy setting does not allow sending resume text]",
-        })
+        resume_context.append(
+            {
+                "filename": doc.get("filename", "resume")
+                if include_resume_text
+                else f"resume_{len(resume_context) + 1}",
+                "variant": doc.get("variant", "unspecified"),
+                "text": _redact_contact_details(doc.get("text", ""))[:18000]
+                if include_resume_text
+                else "[Omitted: local privacy setting does not allow sending resume text]",
+            }
+        )
 
     input_data = {
         "job": job,
         "candidate_profile_configured_facts": candidate_context,
         "resume_documents": resume_context,
-        "available_resume_variants": sorted({doc.get("variant", "unspecified") for doc in resume_documents if doc.get("variant") in {"robotics", "backend", "hybrid"}}),
+        "available_resume_variants": sorted(
+            {
+                doc.get("variant", "unspecified")
+                for doc in resume_documents
+                if doc.get("variant") in {"robotics", "backend", "hybrid"}
+            }
+        ),
         "resume_text_included": include_resume_text,
-        "weights_percent": profile.get("job_scoring", {}).get("weights", {
-            "technical_skills": 28, "responsibility_match": 28, "experience_evidence": 22,
-            "seniority_match": 11, "domain_match": 11,
-        }),
+        "weights_percent": profile.get("job_scoring", {}).get(
+            "weights",
+            {
+                "technical_skills": 28,
+                "responsibility_match": 28,
+                "experience_evidence": 22,
+                "seniority_match": 11,
+                "domain_match": 11,
+            },
+        ),
         "scoring_instructions": {
             "category_scores": "Score fit from 0 to 10, considering both importance and evidence strength; do not reward keyword-only overlap. When a JD lists languages as alternatives (for example C++, Java, C#, or Perl), proven professional experience in one accepted language satisfies that language requirement; do not list the other alternatives as a gap unless the JD separately requires them.",
             "experience": "Treat dates and role descriptions in actual resume documents as primary evidence for chronology and professional years. Locally extracted education and experience facts are leads with source excerpts, not independently verified credentials unless their review status is approved. The configured years_experience value is a prior estimate. If dates and profile conflict or cannot be calculated, note that uncertainty. Distinguish team contribution from primary ownership and production experience from personal projects.",
@@ -228,7 +362,11 @@ def score_with_groq(
         "model": model,
         "messages": [
             {"role": "system", "content": instructions},
-            {"role": "user", "content": "Evaluate the following job and candidate data:\n" + json.dumps(input_data, ensure_ascii=False)},
+            {
+                "role": "user",
+                "content": "Evaluate the following job and candidate data:\n"
+                + json.dumps(input_data, ensure_ascii=False),
+            },
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
@@ -241,7 +379,7 @@ def score_with_groq(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent" : "jobsApp/1.0",
+            "User-Agent": "job-agent/1.0",
         },
         method="POST",
     )
@@ -261,9 +399,12 @@ def score_with_groq(
                 "on 2026-08-16 and remains Enterprise-only. If your project does not have access, set "
                 "GROQ_MODEL=openai/gpt-oss-120b in .env (current recommended replacement with strict JSON-schema support)."
             )
-        raise LLMScoringError(f"Groq API returned HTTP {exc.code}: {detail}.{guidance}") from exc
+        raise LLMScoringError(
+            f"Groq API returned HTTP {exc.code}: {detail}.{guidance}"
+        ) from exc
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise LLMScoringError(f"Could not complete Groq scoring request: {exc}") from exc
+        raise LLMScoringError(
+            f"Could not complete Groq scoring request: {exc}"
+        ) from exc
 
     return _validate_assessment(_json_output_from_response(body))
-

@@ -1,0 +1,115 @@
+      {
+  "company": "Cisco",
+  "title": "Software Engineer",
+  "location": "Bengaluru, Karnataka, India",
+  "country": "IN",
+  "employment_type": "full_time",
+  "jd_url": "https://www.linkedin.com/jobs/view/4477656621/",
+  "application_url": "https://www.linkedin.com/jobs/view/4477656621/",
+  "overall_score": null,
+  "eligibility_status": "needs_review",
+  "resume_variant": "backend",
+  "resume_path": "",
+  "notes": "LinkedIn posting reviewed on 2026-10-22. Strong technical overlap with the candidate's modern C++, production distributed-systems, system-design, and feature-delivery experience. The job is marked Entry level, full-time, in Bengaluru. Do not assume the education requirement is satisfied: the posting asks for a Bachelor's degree in Computer Science or a related field (or a relevant Master's degree), while the candidate's degree is Mechanical Engineering with an Information Technology minor; preserve this as a qualification-review flag rather than inventing equivalence. The posting explicitly expects use of AI coding assistants to accelerate development and automate testing; do not mark that as proven unless the candidate profile or resume contains supporting evidence. DSA depth should also be scored from documented evidence, not assumed from professional C++ experience. Use the backend resume as the initial candidate because the role emphasizes software engineering, distributed systems, application scalability, and cloud environments. The overall fit score is intentionally unset until the local scoring workflow runs. The LinkedIn page was accessible, but the external application destination was not independently verified.",
+  "source": {
+    "platform": "LinkedIn Jobs",
+    "source_search_url": "https://www.linkedin.com/jobs/view/4477656621/",
+    "job_id": "4477656621",
+    "company_job_code": null,
+    "job_page_title": "Software Engineer at Cisco",
+    "seniority_level": "Entry level",
+    "posted_text_as_seen": "4 days ago, as displayed on the LinkedIn listing when reviewed",
+    "applicant_count_as_seen": "Over 200 applicants, as displayed on the LinkedIn listing when reviewed",
+    "application_destination_verified": false
+  },
+  "job_description": {
+    "summary": "Cisco is hiring a Software Engineer in Bengaluru, Karnataka, India. The role focuses on delivering scalable cloud applications, improving products and services, designing distributed systems, and developing features through the software lifecycle. Engineers work independently with guidance, may lead small-to-medium features from technical design through completion, and are expected to code, debug, test, troubleshoot, contribute to software quality, collaborate with others, and use AI-assisted development workflows responsibly.",
+    "responsibilities": [
+      "Use software-engineering best practices and knowledge of business or technical issues to improve products and services.",
+      "Work independently with guidance from a leader and determine an appropriate approach to assigned work.",
+      "Potentially lead small-to-medium features from technical design through completion.",
+      "Maintain knowledge of software-development lifecycle practices and agile engineering; coach others when needed.",
+      "Contribute high-quality designs and deliverables.",
+      "Advocate for product features that address customer needs.",
+      "Track metrics related to product adoption and success.",
+      "Perform coding, debugging, testing, and troubleshooting throughout development with minimal supervision.",
+      "Use AI-assisted development tools to improve development efficiency and automate testing, while validating generated output responsibly."
+    ],
+    "basic_qualifications": [
+      "Bachelor's degree with 0 to 2 years of experience, or a Master's degree with 0 years of experience, in Computer Science or a related field.",
+      "Strong grasp of data structures and algorithms.",
+      "Proficiency in at least one of C/C++, Java, Python, or Golang.",
+      "Ability to design distributed systems and reason about application scalability and cloud environments.",
+      "Ability to use AI coding assistants such as Claude or GitHub Copilot to accelerate development and automate testing."
+    ],
+    "preferred_qualifications": [
+      "Proven ability to resolve complex technical problems.",
+      "Strong collaboration and communication skills.",
+      "Self-motivation and a results-oriented approach."
+    ],
+    "team_markets": [
+      "India"
+    ]
+  },
+  "application_fields_source": "The public LinkedIn job page did not expose the actual application questionnaire. The following are generic candidate-intake prompts only; their presence and mandatory status must be verified on the real application form.",
+  "fields": [
+    {
+      "label": "Expected compensation",
+      "intent": "expected_compensation",
+      "required": false,
+      "type": "text",
+      "options": [],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Bengaluru, Karnataka, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Are you legally authorized to work in the country of this job?",
+      "intent": "work_authorization",
+      "required": false,
+      "type": "single_choice",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Bengaluru, Karnataka, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Do you require visa sponsorship now or in the future?",
+      "intent": "sponsorship",
+      "required": false,
+      "type": "single_choice",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Bengaluru, Karnataka, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Optional cover letter",
+      "intent": "cover_letter",
+      "required": false,
+      "type": "text",
+      "options": [],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "Bengaluru, Karnataka, India"
+      },
+      "form_field_verified": false
+    }
+  ]
+}

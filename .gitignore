@@ -8,6 +8,7 @@ data/resume_cache.json
 # Local resume documents are private; retain only the instructions file
 resumes/*
 !resumes/README.md
+tailored_resumes/*
 
 # Locally extracted resume facts may contain personal education/employment data
 data/*

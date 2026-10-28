@@ -1,0 +1,120 @@
+{
+  "company": "Rohde & Schwarz",
+  "title": "Software Application Development Engineer",
+  "location": "New Delhi, Delhi, India",
+  "country": "IN",
+  "employment_type": "full_time",
+  "jd_url": "https://in.linkedin.com/jobs/view/software-application-development-engineer-at-rohde-schwarz-4394757175",
+  "application_url": "https://jobs.rohde-schwarz.com/careers/ApplicationMethods?jobId=16138&locale=en_US",
+  "overall_score": null,
+  "eligibility_status": "needs_review",
+  "resume_variant": "backend",
+  "resume_path": "",
+  "notes": "Job requirements checked against the official Rohde & Schwarz listing, reference number 16138, and the corresponding LinkedIn listing, job ID 4394757175. The role emphasizes C++ and Python application development, GUI engineering, object-oriented design, debugging, unit testing, integration, maintainability, and software quality. PyQt and experience using API commands to build application GUIs are added advantages rather than mandatory requirements. Do not penalize the candidate for lacking RF test-equipment experience, which is not stated as a qualification for this listing. Prioritize the desktop_gui resume variant because GUI development is a core requirement, while evaluating C++, Python, debugging, testing, and integration evidence across the available resumes. A Mechanical Engineering degree with an Information Technology minor requires a separate review against the stated degree-equivalence requirement. Calculate fit and eligibility using the agent's existing scoring workflow; do not hard-code a score or eligibility decision.",
+  "source": {
+    "platform": "LinkedIn Jobs",
+    "source_search_url": "https://in.linkedin.com/jobs/view/software-application-development-engineer-at-rohde-schwarz-4394757175",
+    "job_id": "4394757175",
+    "company_job_code": "16138",
+    "job_page_title": "Software Application Development Engineer at Rohde & Schwarz",
+    "seniority_level": "Professionals / Young professionals",
+    "posted_text_as_seen": "Listed on LinkedIn; verify current posting details before applying",
+    "applicant_count_as_seen": null,
+    "application_destination_verified": false
+  },
+  "job_description": {
+    "summary": "Rohde & Schwarz is seeking a Software Application Development Engineer for its New Delhi office. The position involves developing and integrating software features using established coding standards, adopting engineering processes and quality practices, collaborating with internal and external stakeholders, improving existing codebases through refactoring and documentation, translating customer requirements into Software Design Documents, and delivering milestones while participating in periodic reviews. The stated qualifications include C++, Python, object-oriented programming, GUI development, debugging, and unit testing, with at least three years of professional experience.",
+    "responsibilities": [
+      "Adopt and follow the organization's engineering processes, quality standards, and development environment.",
+      "Design, implement, and integrate software solutions and features in accordance with coding standards and best practices.",
+      "Collaborate with internal development teams and internal and external customers.",
+      "Meet software quality targets and ensure that release quality gates are satisfied.",
+      "Refactor and document existing code to improve maintainability and testability.",
+      "Capture and map software requirements from internal and external customers and document them in Software Design Documents.",
+      "Plan and execute milestones and participate in periodic reviews."
+    ],
+    "basic_qualifications": [
+      "BE/BTech in Computer Science, Information Technology, or an equivalent qualification.",
+      "Expertise in C++ and Python.",
+      "At least three years of professional software development experience.",
+      "Strong understanding of object-oriented programming.",
+      "Solid experience developing graphical user interfaces.",
+      "Proficiency in debugging techniques.",
+      "Experience using test frameworks and creating unit tests.",
+      "Ability to work independently with a goal-oriented approach.",
+      "Strong teamwork and communication skills."
+    ],
+    "preferred_qualifications": [
+      "Experience using API commands when building application GUIs.",
+      "Experience with PyQt.",
+      "Ability to adapt to another programming language."
+    ],
+    "team_markets": [
+      "Germany",
+      "India",
+      "United States",
+      "Czech Republic"
+    ]
+  },
+  "application_fields_source": "Unverified template fields based on regional pre-application markers. LinkedIn public parameters did not expose the actual internal application questionnaire. Confirm required fields on the application form before submitting.",
+  "fields": [
+    {
+      "label": "Expected compensation",
+      "intent": "expected_compensation",
+      "required": true,
+      "type": "text",
+      "options": [],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "New Delhi, Delhi, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Are you legally authorized to work in the country of this job?",
+      "intent": "work_authorization",
+      "required": true,
+      "type": "single_choice",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "New Delhi, Delhi, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Do you require visa sponsorship now or in the future?",
+      "intent": "sponsorship",
+      "required": true,
+      "type": "single_choice",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "New Delhi, Delhi, India"
+      },
+      "form_field_verified": false
+    },
+    {
+      "label": "Optional cover letter",
+      "intent": "cover_letter",
+      "required": false,
+      "type": "text",
+      "options": [],
+      "context": {
+        "country": "IN",
+        "employment_type": "full_time",
+        "location": "New Delhi, Delhi, India"
+      },
+      "form_field_verified": false
+    }
+  ]
+}

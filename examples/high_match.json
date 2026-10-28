@@ -1,0 +1,57 @@
+{
+  "company": "LOCAL TEST FIXTURE - NOT A REAL EMPLOYER",
+  "title": "C++ Software Engineer - Fleet Management and Simulation Tools [TEST ONLY]",
+  "location": "India (local workflow test only)",
+  "country": "IN",
+  "employment_type": "full_time",
+  "jd_url": "https://example.invalid/jobs/cpp-fleet-simulation-test-fixture",
+  "application_url": "https://example.invalid/apply-do-not-use",
+  "overall_score": null,
+  "eligibility_status": "needs_review",
+  "resume_variant": "robotics",
+  "resume_path": "",
+  "notes": "SYNTHETIC TEST FIXTURE ONLY. This is not an actual vacancy and must not be submitted to any employer. It is intentionally aligned to the candidate's documented modern C++, distributed systems, multi-robot fleet-management, task orchestration/scheduling, simulation/editor GUI, observability, CLI, and testing experience so the process-to-tailoring workflow can be exercised. Do not hard-code a score: calculate the score through the normal workflow and retain the configured strict threshold of greater than 7.00/10.",
+  "source": {
+    "platform": "Local synthetic test fixture",
+    "source_search_url": "",
+    "job_id": "TEST-CPP-FLEET-001",
+    "company_job_code": null,
+    "job_page_title": "C++ Software Engineer - Fleet Management and Simulation Tools [TEST ONLY]",
+    "seniority_level": "Mid-level",
+    "posted_text_as_seen": "Synthetic fixture created locally for testing automated resume tailoring; not a real job posting.",
+    "applicant_count_as_seen": null,
+    "application_destination_verified": false
+  },
+  "job_description": {
+    "summary": "This synthetic test role represents a mid-level C++ software engineer working on a robotics fleet-management and simulation platform. The work combines production C++ distributed-system components with developer-facing simulation/editor tools. The role is designed solely to validate the local job-processing and resume-tailoring pipeline, not to represent a real vacancy.",
+    "responsibilities": [
+      "Design, implement, test, and maintain modern C++ components in a Linux-based production software platform.",
+      "Develop and improve distributed fleet-management capabilities, including task orchestration, task scheduling, agent reservation support, and communication interfaces.",
+      "Build and maintain simulation and editor tooling used to inspect, configure, replay, and debug multi-agent scenarios.",
+      "Implement practical GUI workflows such as map and scenario editing, selection and manipulation of elements, drag-and-drop interactions, and undo/redo operations.",
+      "Integrate software components through existing interfaces and ensure changes work with the broader platform.",
+      "Improve system observability with operational metrics, logs, and diagnostics to help engineers understand production behavior.",
+      "Write and maintain tests, use established build and CI workflows, and debug issues found during integration or operation.",
+      "Work collaboratively with engineers across the platform and deliver well-scoped features without assuming ownership of the entire codebase."
+    ],
+    "basic_qualifications": [
+      "Approximately three or more years of professional software development experience, or equivalent practical experience.",
+      "Strong professional experience with modern C++ and object-oriented design.",
+      "Experience with multithreading, concurrency, distributed software components, or other production systems with interacting agents or services.",
+      "Experience developing application tools, simulation tooling, visualization tools, or GUI features in C++.",
+      "Working knowledge of Linux, debugging, software integration, testing, and build/CI workflows.",
+      "Experience implementing features within an existing codebase, improving maintainability, and collaborating with teammates."
+    ],
+    "preferred_qualifications": [
+      "Experience with robotics, fleet-management systems, simulation, scheduling, reservations, or multi-agent applications.",
+      "Experience with monitoring, metrics, log replay, or developer-facing diagnostics.",
+      "Experience with Docker, Kubernetes, MongoDB, or similar infrastructure and data tools where relevant to the product.",
+      "Experience implementing GUI editing interactions or the Command pattern for undo/redo behavior."
+    ],
+    "team_markets": [
+      "India"
+    ]
+  },
+  "application_fields_source": "No external application form exists; this is a local test fixture only.",
+  "fields": []
+}
