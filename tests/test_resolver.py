@@ -52,6 +52,32 @@ class ResolverTests(unittest.TestCase):
     def test_compensation_classifier(self):
         self.assertEqual(classify_intent("What is your expected CTC?"), "expected_compensation")
 
+    def test_ai_assisted_development_question_is_classified(self):
+        self.assertEqual(
+            classify_intent("Have you used Claude Code or GitHub Copilot professionally?"),
+            "ai_assisted_development",
+        )
+
+    def test_universal_ai_tool_answer_resolves_without_job_specific_applicability(self):
+        today = date.today()
+        bank = {
+            "answers": [
+                {
+                    "id": "ans_ai_tools",
+                    "intent": "ai_assisted_development",
+                    "answer": "Yes. I have used Claude Code professionally.",
+                    "status": "approved",
+                    "applicability": {},
+                    "verified_at": today.isoformat(),
+                    "expires_at": (today + timedelta(days=30)).isoformat(),
+                    "reuse_policy": "only_when_applicable",
+                }
+            ]
+        }
+        result = resolve_answer("ai_assisted_development", {}, bank)
+        self.assertEqual(result["status"], "resolved")
+        self.assertIn("Claude Code", result["answer"])
+
 
 if __name__ == "__main__":
     unittest.main()

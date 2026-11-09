@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from job_agent.scoring import score_job, _remove_false_alternative_language_gaps, _remove_llm_eligibility_claims  # noqa: E402
-from job_agent.agent import process_job  # noqa: E402
+from job_agent.scoring import score_job, _remove_false_alternative_language_gaps, _remove_llm_eligibility_claims, _score_job_rules  # noqa: E402
+from job_agent.agent import answer_pending_question, process_job  # noqa: E402
 
 
 class ScoringTests(unittest.TestCase):
@@ -252,6 +252,237 @@ class ScoringTests(unittest.TestCase):
         gaps = ["Limited documented evidence for Java", "No proven Java or C# experience; these are acceptable alternatives", "Limited documented evidence for mentoring"]
         result = _remove_false_alternative_language_gaps(gaps, job)
         self.assertEqual(result, ["Limited documented evidence for mentoring"])
+
+    def test_cpp_satisfies_c_cpp_or_java_or_python_or_golang_alternatives(self):
+        job = {
+            "job_description": {
+                "basic_qualifications": [
+                    "Proficiency in C/C++ or Java or Python or Golang is required."
+                ]
+            }
+        }
+        gaps = [
+            "Limited documented evidence for Java",
+            "No proven Python experience",
+            "Missing evidence for Golang",
+        ]
+        self.assertEqual(_remove_false_alternative_language_gaps(gaps, job), [])
+
+    def test_rules_score_language_or_group_as_one_requirement(self):
+        profile = json.loads(json.dumps(self.profile))
+        job = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Proficiency in C/C++ or Java or Python or Golang is required.",
+            },
+        }
+        result = _score_job_rules(job, profile)
+        topics = [
+            item["topic"]
+            for item in result["components"]["technical_skills"]["matched_topics"]
+        ]
+        self.assertIn("C++", topics)
+        self.assertNotIn("Java", topics)
+        self.assertFalse(
+            any("Java" in gap for gap in result["components"]["technical_skills"]["gaps"])
+        )
+
+    def test_independently_required_java_is_not_suppressed_by_language_or_group(self):
+        job = {
+            "job_description": {
+                "basic_qualifications": [
+                    "Proficiency in C/C++ or Java or Python or Golang.",
+                    "Professional Java experience is required for this position.",
+                ]
+            }
+        }
+        gaps = [
+            "Limited documented evidence for Java",
+            "No proven Python experience",
+            "Missing evidence for Golang",
+        ]
+        self.assertEqual(
+            _remove_false_alternative_language_gaps(gaps, job),
+            ["Limited documented evidence for Java"],
+        )
+
+    def test_mentoring_as_needed_does_not_create_a_mentoring_gap(self):
+        profile = json.loads(json.dumps(self.profile))
+        job = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Build C++ distributed software services.",
+                "responsibilities": [
+                    "Collaborate with teammates and coach others, as needed."
+                ],
+            },
+        }
+        result = _score_job_rules(job, profile)
+        self.assertNotIn(
+            "Technical leadership / mentoring",
+            [item["topic"] for item in result["components"]["responsibility_match"]["matched_topics"]],
+        )
+        self.assertFalse(
+            any("mentoring" in flag.lower() for flag in result["gaps_and_flags"])
+        )
+
+    def test_mandatory_team_mentoring_remains_a_meaningful_gap(self):
+        profile = json.loads(json.dumps(self.profile))
+        job = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Build C++ distributed software services.",
+                "basic_qualifications": [
+                    "Must mentor junior engineers and coach team members."
+                ],
+            },
+        }
+        result = _score_job_rules(job, profile)
+        self.assertTrue(
+            any("mentoring" in flag.lower() for flag in result["gaps_and_flags"])
+        )
+        self.assertTrue(
+            any("mentoring" in flag.lower() for flag in result["components"]["experience_evidence"]["flags"])
+        )
+
+    def test_soft_mentoring_does_not_hide_a_separate_mandatory_mentoring_requirement(self):
+        profile = json.loads(json.dumps(self.profile))
+        job = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Build C++ distributed software services.",
+                "responsibilities": ["Coach peers, as needed."],
+                "basic_qualifications": ["Must mentor junior engineers."],
+            },
+        }
+        result = _score_job_rules(job, profile)
+        self.assertTrue(
+            any("mentoring" in flag.lower() for flag in result["gaps_and_flags"])
+        )
+
+    def test_preferred_ai_coding_assistant_has_less_impact_than_mandatory(self):
+        profile = json.loads(json.dumps(self.profile))
+        profile["candidate_profile"]["evidence_strength"]["ai_assisted_development"] = 0.65
+        preferred = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Build C++ distributed software services.",
+                "preferred_qualifications": [
+                    "Experience using AI coding assistants such as Claude Code."
+                ],
+            },
+        }
+        mandatory = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Build C++ distributed software services.",
+                "basic_qualifications": [
+                    "Required: experience using AI coding assistants such as Claude Code."
+                ],
+            },
+        }
+        preferred_result = _score_job_rules(preferred, profile)
+        mandatory_result = _score_job_rules(mandatory, profile)
+        preferred_topic = next(
+            item for item in preferred_result["components"]["technical_skills"]["matched_topics"]
+            if item["topic"] == "AI-assisted development tools"
+        )
+        mandatory_topic = next(
+            item for item in mandatory_result["components"]["technical_skills"]["matched_topics"]
+            if item["topic"] == "AI-assisted development tools"
+        )
+        self.assertLess(
+            preferred_topic["weighted_contribution"],
+            mandatory_topic["weighted_contribution"],
+        )
+
+    def test_professional_claude_code_answer_bank_fact_enriches_local_scoring(self):
+        job = {
+            "company": "Example",
+            "title": "Software Engineer",
+            "country": "IN",
+            "job_description": {
+                "summary": "Build C++ software and use AI coding assistants such as Claude Code."
+            },
+        }
+        facts = {"review_status": "needs_review", "extracted_facts": {"education": [], "years_experience": []}}
+        answer_bank = {
+            "answers": [{
+                "id": "ans_ai_tools",
+                "intent": "ai_assisted_development",
+                "question": "Have you used AI-assisted development tools professionally?",
+                "answer": "Yes. I have used Claude Code in my professional software development work.",
+                "status": "approved",
+                "applicability": {},
+                "verified_at": "2026-11-03",
+                "expires_at": "2027-02-01",
+                "reuse_policy": "only_when_applicable",
+            }]
+        }
+        with (
+            patch("job_agent.scoring.load_resume_documents", return_value={"documents": [], "status": {"resume_count": 0, "filenames": []}}),
+            patch("job_agent.scoring.persist_candidate_facts", return_value=facts),
+            patch("job_agent.scoring.load_answer_bank", return_value=answer_bank),
+        ):
+            result = score_job(job, self.profile, mode="rules")
+        topic = next(
+            item for item in result["components"]["technical_skills"]["matched_topics"]
+            if item["topic"] == "AI-assisted development tools"
+        )
+        self.assertEqual(topic["profile_strength"], 0.65)
+
+    def test_ai_assisted_development_answer_can_be_saved_as_universal_reusable_fact(self):
+        pending = {
+            "questions": [{
+                "question_id": "q_ai_tools",
+                "application_id": "app_test",
+                "field_label": "Have you used AI coding assistants professionally?",
+                "intent": "ai_assisted_development",
+                "required": True,
+                "status": "awaiting_user",
+                "context": {"country": "IN", "employment_type": "full_time"},
+                "options": [],
+            }]
+        }
+        applications = {
+            "applications": [{
+                "application_id": "app_test",
+                "answers": [],
+                "score_decision": "TAILOR_RESUME",
+            }]
+        }
+        bank = {"schema_version": 1, "answers": []}
+        with (
+            patch("job_agent.agent.load_pending", return_value=pending),
+            patch("job_agent.agent.load_applications", return_value=applications),
+            patch("job_agent.agent.save_pending"),
+            patch("job_agent.agent.save_applications"),
+            patch("job_agent.agent.upsert_log"),
+            patch("job_agent.storage.load_answer_bank", return_value=bank),
+            patch("job_agent.storage.save_answer_bank") as save_bank,
+        ):
+            answer_pending_question(
+                "q_ai_tools",
+                "Yes. I have used Claude Code in my professional software development work.",
+                save_for_reuse=True,
+            )
+        saved = save_bank.call_args.args[0]["answers"][0]
+        self.assertEqual(saved["intent"], "ai_assisted_development")
+        self.assertEqual(saved["applicability"], {})
+        self.assertEqual(saved["status"], "approved")
+        self.assertIn("Claude Code", saved["answer"])
 
     def test_threshold_is_strict(self):
         profile = json.loads(json.dumps(self.profile))

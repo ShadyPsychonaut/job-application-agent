@@ -16,7 +16,7 @@ from .llm_scoring import LLMScoringError, load_local_env, score_with_groq
 from .profile_facts import apply_extracted_facts, persist_candidate_facts
 from .resolver import resolve_answer
 from .resume_ingestion import load_resume_documents
-from .storage import load_profile, now_iso
+from .storage import load_answer_bank, load_profile, now_iso
 
 FIT_CATEGORIES = (
     "technical_skills",
@@ -171,6 +171,22 @@ SKILL_TOPICS: dict[str, dict[str, Any]] = {
             "latency",
         ],
         "weight": 0.8,
+    },
+    "ai_assisted_development": {
+        "label": "AI-assisted development tools",
+        "terms": [
+            "ai coding assistant",
+            "ai-assisted development",
+            "ai assisted development",
+            "ai development tools",
+            "claude code",
+            "github copilot",
+            "copilot",
+            "cursor",
+        ],
+        # Supporting workflow skill; it is deliberately less influential than
+        # core programming, systems, and domain capabilities.
+        "weight": 0.45,
     },
     "robotics": {
         "label": "Robotics / mobile robots",
@@ -535,6 +551,78 @@ def _matched_topics(
     return found
 
 
+def _mentoring_requirement_is_soft(job: dict[str, Any], text: str) -> bool:
+    """Return true only when every mentoring reference is explicitly soft.
+
+    A preferred/as-needed mention must not hide a separate mandatory mentoring
+    requirement elsewhere in the posting.
+    """
+    jd = job.get("job_description", {})
+    preferred = jd.get("preferred_qualifications", []) if isinstance(jd, dict) else []
+    if isinstance(preferred, str):
+        preferred = [preferred]
+
+    mentorship = r"(?:mentor\w*|coach\w*)"
+    soft = (
+        r"as needed|when needed|if needed|as required|when required|if required|"
+        r"preferred|nice[- ]to[- ]have|a plus|bonus|may be asked to|may occasionally"
+    )
+    hard = (
+        r"must|required|mandatory|at least|responsible for|expected to|"
+        r"will need to|will be required to"
+    )
+
+    clauses = [
+        re.sub(r"\s+", " ", clause).strip()
+        for clause in re.split(r"[\n.;]+", text)
+        if re.search(mentorship, clause, re.I)
+    ]
+    if not clauses:
+        return False
+
+    for clause in clauses:
+        has_soft = bool(re.search(soft, clause, re.I))
+        has_hard = bool(re.search(hard, clause, re.I))
+        if has_hard or not has_soft:
+            # A preferred-list entry is soft by virtue of its section, unless
+            # its own wording explicitly makes it mandatory.
+            is_preferred_item = any(
+                clause.casefold() in str(item).casefold()
+                or str(item).casefold() in clause.casefold()
+                for item in preferred
+            )
+            if not is_preferred_item or has_hard:
+                return False
+    return True
+
+
+def _ai_tool_requirement_is_preferred(job: dict[str, Any], text: str) -> bool:
+    jd = job.get("job_description", {})
+    if isinstance(jd, dict):
+        preferred = jd.get("preferred_qualifications", []) or []
+        if isinstance(preferred, str):
+            preferred = [preferred]
+        if any(
+            re.search(
+                r"\b(?:ai[- ]assisted|ai coding|claude code|copilot|cursor)\b",
+                str(item),
+                re.I,
+            )
+            for item in preferred
+        ):
+            return True
+    return bool(
+        re.search(
+            r"(?:preferred|nice[- ]to[- ]have|a plus|bonus).{0,80}"
+            r"(?:ai coding|ai-assisted|ai assisted|claude code|copilot|cursor)|"
+            r"(?:ai coding|ai-assisted|ai assisted|claude code|copilot|cursor)"
+            r".{0,80}(?:preferred|nice[- ]to[- ]have|a plus|bonus)",
+            text,
+            flags=re.I | re.S,
+        )
+    )
+
+
 def _weighted_strength_score(
     matches: list[tuple[str, dict[str, Any]]],
     evidence_strength: dict[str, Any],
@@ -636,7 +724,7 @@ def _seniority_score(
     ):
         score = 7.2
         reasons.append(
-            "Role appears mid-level; broadly plausible, with some ownership/mentoring expectations to verify."
+            "Role appears mid-level; broadly plausible, with ownership expectations to verify."
         )
     elif any(
         x in combined
@@ -739,6 +827,11 @@ def _experience_score(
         ),
     ]
     for label, terms, strength_key, weight in expectations:
+        if label == "mentoring" and _mentoring_requirement_is_soft(job, text):
+            reasons.append(
+                "Mentoring/coaching is phrased as an optional or as-needed expectation; it is not treated as a core experience gap."
+            )
+            continue
         hits = [term for term in terms if _contains(text, term)]
         if hits:
             strength = float(strengths.get(strength_key, 0.25))
@@ -1085,11 +1178,25 @@ def _score_job_rules(job: dict[str, Any], profile: dict[str, Any]) -> dict[str, 
     text = _job_text(job)
 
     tech_matches = _matched_topics(text, SKILL_TOPICS)
+    tech_matches = _collapse_satisfied_language_alternatives(
+        tech_matches, job, evidence_strength=evidence
+    )
+    if _ai_tool_requirement_is_preferred(job, text):
+        for key, topic in tech_matches:
+            if key == "ai_assisted_development":
+                topic["weight"] = float(topic.get("weight", 1.0)) * 0.55
     tech_score, tech_details, tech_gaps = _weighted_strength_score(
         tech_matches, evidence, fallback=5.5
     )
+    tech_gaps = _remove_false_alternative_language_gaps(tech_gaps, job)
 
     resp_matches = _matched_topics(text, RESPONSIBILITY_TOPICS)
+    if _mentoring_requirement_is_soft(job, text):
+        resp_matches = [
+            (key, topic)
+            for key, topic in resp_matches
+            if key != "mentoring_leadership"
+        ]
     responsibility_strength = candidate.get("responsibility_strength", {})
     responsibility_score, resp_details, resp_gaps = _weighted_strength_score(
         resp_matches, responsibility_strength, fallback=5.5
@@ -1275,39 +1382,129 @@ def _merge_unique(*groups: Any) -> list[str]:
     return result
 
 
+_LANGUAGE_PATTERNS = {
+    "c++": r"\bc\s*/\s*c\+\+(?=\W|$)|\bc\+\+(?=\W|$)|\bc plus plus\b",
+    "c#": r"\bc\s*#(?=\W|$)|\bc sharp\b",
+    "java": r"\bjava\b",
+    "python": r"\bpython\b",
+    "golang": r"\bgolang\b|\bgo language\b",
+    "rust": r"\brust\b",
+    "kotlin": r"\bkotlin\b",
+    "swift": r"\bswift\b",
+    "perl": r"\bperl\b",
+    "ruby": r"\bruby\b",
+    "php": r"\bphp\b",
+    "scala": r"\bscala\b",
+    "javascript": r"\bjavascript\b",
+    "typescript": r"\btypescript\b",
+}
+
+
+def _language_requirements(job: dict[str, Any]) -> tuple[set[str], set[str]]:
+    """Return (alternative languages, independently required languages)."""
+    text = _job_text(job)
+    alternatives: set[str] = set()
+    independent: set[str] = set()
+    # A single list item/sentence is the scope for an OR group. This avoids
+    # treating a Java requirement in a separate sentence as an alternative.
+    for clause in re.split(r"[\n.;:]+", text):
+        found = {
+            language
+            for language, pattern in _LANGUAGE_PATTERNS.items()
+            if re.search(pattern, clause, flags=re.I)
+        }
+        if not found:
+            continue
+        is_alternative_group = len(found) > 1 and bool(
+            re.search(r"\bor\b|/", clause, flags=re.I)
+        )
+        if is_alternative_group:
+            alternatives.update(found)
+        elif len(found) == 1 and re.search(
+            r"\b(required|requirement|proficiency|proficient|experience|expertise|"
+            r"knowledge|strong command|hands-on|hands on)\b",
+            clause,
+            flags=re.I,
+        ):
+            independent.update(found)
+    return alternatives, independent
+
+
+_LANGUAGE_TOPIC_KEYS = {"c++": "cpp", "java": "java"}
+
+
+def _collapse_satisfied_language_alternatives(
+    matches: list[tuple[str, dict[str, Any]]],
+    job: dict[str, Any],
+    *,
+    evidence_strength: dict[str, Any],
+) -> list[tuple[str, dict[str, Any]]]:
+    """Score an OR language group as one requirement, not several skills.
+
+    When the profile has strong evidence for at least one alternative, retain
+    only the strongest evidenced language topic from that group. A language
+    separately required elsewhere remains in the score independently.
+    """
+    alternatives, independently_required = _language_requirements(job)
+    if not alternatives:
+        return matches
+
+    supported: list[tuple[str, str, float]] = []
+    for language, key in _LANGUAGE_TOPIC_KEYS.items():
+        if language not in alternatives or language in independently_required:
+            continue
+        strength = float(evidence_strength.get(key, 0.0) or 0.0)
+        if strength >= 0.5:
+            supported.append((language, key, strength))
+    if not supported:
+        return matches
+
+    _language, best_key, _strength = max(supported, key=lambda item: item[2])
+    collapsed: list[tuple[str, dict[str, Any]]] = []
+    for key, topic in matches:
+        language = next(
+            (name for name, topic_key in _LANGUAGE_TOPIC_KEYS.items() if topic_key == key),
+            None,
+        )
+        if (
+            language in alternatives
+            and language not in independently_required
+            and key != best_key
+        ):
+            continue
+        collapsed.append((key, topic))
+    return collapsed
+
+
 def _jd_accepts_cpp_as_an_explicit_language_alternative(job: dict[str, Any]) -> bool:
-    text = _job_text(job).lower()
-    # Keep this deliberately conservative: only suppress alternative-language
-    # gaps when the JD explicitly lists a set of acceptable languages.
-    patterns = (
-        r"\bc#\s*,\s*c\+\+\s*,\s*java\s*,?\s*or\s+perl\b",
-        r"\bc\+\+\s*,\s*java\s*,?\s*or\s+c#\b",
-        r"\b(?:c\+\+|java|c#|perl)\b.{0,35}\bor\b.{0,35}\b(?:c\+\+|java|c#|perl)\b",
-    )
-    return "c++" in text and any(
-        re.search(pattern, text, flags=re.I | re.S) for pattern in patterns
-    )
+    alternatives, _independent = _language_requirements(job)
+    return "c++" in alternatives
 
 
 def _remove_false_alternative_language_gaps(
     items: list[str], job: dict[str, Any]
 ) -> list[str]:
-    if not _jd_accepts_cpp_as_an_explicit_language_alternative(job):
+    alternatives, independently_required = _language_requirements(job)
+    if "c++" not in alternatives:
         return items
     filtered = []
     for item in items:
         lower = item.lower()
-        language_gap = ("java" in lower or "c#" in lower or "c sharp" in lower) and any(
-            marker in lower
-            for marker in (
-                "limited",
-                "no proven",
-                "lack",
-                "absence",
-                "does not demonstrate",
-                "missing evidence",
-            )
+        language_gap_markers = (
+            "limited",
+            "no proven",
+            "lack",
+            "absence",
+            "does not demonstrate",
+            "missing evidence",
+            "not demonstrated",
         )
+        language_gap = any(
+            language in alternatives
+            and language not in independently_required
+            and re.search(_LANGUAGE_PATTERNS[language], lower, flags=re.I)
+            for language in alternatives
+        ) and any(marker in lower for marker in language_gap_markers)
         if not language_gap:
             filtered.append(item)
     return filtered
@@ -1381,6 +1578,18 @@ def score_job(
     documents = resume_data.get("documents", [])
     facts = persist_candidate_facts(documents)
     scoring_profile = apply_extracted_facts(base_profile, facts)
+    # Treat the user-approved professional Claude Code answer as evidence for
+    # AI-assisted development, without inserting it into the resume or
+    # inferring particular use cases/workflows.
+    ai_tool_answer = resolve_answer(
+        "ai_assisted_development", {}, bank=load_answer_bank()
+    )
+    if ai_tool_answer.get("status") == "resolved":
+        candidate_profile = scoring_profile.setdefault("candidate_profile", {})
+        strengths = candidate_profile.setdefault("evidence_strength", {})
+        strengths["ai_assisted_development"] = max(
+            float(strengths.get("ai_assisted_development", 0.0)), 0.65
+        )
     scorecard = _score_job_rules(job, scoring_profile)
     scorecard["resume_sources"] = resume_data.get("status", {})
     scorecard["resume_text_shared_with_llm"] = False

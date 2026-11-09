@@ -274,6 +274,29 @@ class LLMScoringTests(unittest.TestCase):
                 "job_agent.llm_scoring.urllib.request.urlopen",
                 return_value=FakeResponse(),
             ) as mocked,
+            patch(
+                "job_agent.llm_scoring.load_answer_bank",
+                return_value={"answers": [
+                    {
+                        "intent": "ai_assisted_development",
+                        "question": "Have you used AI coding assistants professionally?",
+                        "answer": "Yes. I have used Claude Code in my professional software development work.",
+                        "status": "approved",
+                    },
+                    {
+                        "intent": "work_authorization",
+                        "question": "Are you authorized to work in the US?",
+                        "answer": "No, sponsorship required.",
+                        "status": "approved",
+                    },
+                    {
+                        "intent": "expected_compensation",
+                        "question": "Expected compensation?",
+                        "answer": "987654321 INR",
+                        "status": "approved",
+                    },
+                ]},
+            ),
         ):
             result = score_with_groq(
                 self.job, self.profile, [], include_resume_text=False
@@ -287,6 +310,18 @@ class LLMScoringTests(unittest.TestCase):
         request_payload = json.loads(request.data.decode("utf-8"))
         self.assertEqual(request_payload["model"], "llama-3.3-70b-versatile")
         self.assertEqual(request_payload["response_format"], {"type": "json_object"})
+        user_context = request_payload["messages"][1]["content"]
+        self.assertIn("Claude Code", user_context)
+        self.assertIn("approved_application_answer_facts", user_context)
+        self.assertNotIn("work_authorization", user_context)
+        self.assertNotIn("sponsorship required", user_context)
+        self.assertNotIn("987654321", user_context)
+        self.assertIn("as needed", user_context)
+        self.assertIn("preferred AI-tool", user_context)
+        submitted = json.loads(user_context.split("Evaluate the following job and candidate data:\n", 1)[1])
+        submitted_facts = submitted["candidate_profile_configured_facts"]["approved_application_answer_facts"]
+        self.assertEqual(len(submitted_facts), 1)
+        self.assertEqual(submitted_facts[0]["intent"], "ai_assisted_development")
 
     def test_auto_mode_uses_rules_without_api_key(self):
         with (

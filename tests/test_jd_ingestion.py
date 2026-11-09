@@ -1,8 +1,10 @@
 import json
 import os
 import unittest
+import tempfile
 from contextlib import redirect_stdout
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 from job_agent.jd_ingestion import (
@@ -197,6 +199,120 @@ class JDIngestionTests(unittest.TestCase):
         self.assertTrue(job["job_description"]["basic_qualifications"])
         self.assertNotIn("Similar jobs", job["job_description"]["description_text"])
 
+    def test_force_recovery_runs_brave_and_accepts_matching_official_description(self):
+        official_result = {
+            "title": "Software Engineer | Cisco Careers",
+            "url": "https://cisco.wd5.myworkdayjobs.com/Cisco_Careers/job/Bangalore-India/Software-Engineer_2028048-1",
+            "description": "Cisco Software Engineer Bengaluru Karnataka India careers",
+        }
+        fetch_queue = [
+            (LINKEDIN_FULL_VISIBLE, "https://www.linkedin.com/jobs/view/4477656621/"),
+            (OFFICIAL_CISCO_HTML, official_result["url"]),
+        ]
+
+        def fetch(url, timeout=15.0):
+            html, final_url = fetch_queue.pop(0)
+            return html, final_url, "text/html; charset=utf-8"
+
+        with (
+            patch("job_agent.jd_ingestion._load_brave_api_key", return_value="test-key"),
+            patch("job_agent.jd_ingestion._brave_search", return_value=[official_result]) as search,
+            patch("job_agent.jd_ingestion._fetch_html", side_effect=fetch),
+        ):
+            job = ingest_job_url(
+                "https://www.linkedin.com/jobs/view/4477656621/",
+                force_recovery=True,
+            )
+        self.assertGreaterEqual(search.call_count, 1)
+        self.assertEqual(job["source"]["jd_extraction_status"], "recovered_official")
+        self.assertTrue(job["processing_ready"])
+        self.assertEqual(
+            job["source"]["jd_recovery"]["verification_status"],
+            "verified_company_posting",
+        )
+        self.assertEqual(
+            job["source"]["original_posting_url"],
+            "https://www.linkedin.com/jobs/view/4477656621/",
+        )
+        self.assertEqual(job["jd_url"], job["source"]["original_posting_url"])
+        self.assertEqual(
+            job["source"]["recovered_source_url"], official_result["url"]
+        )
+
+    def test_same_company_title_location_but_unrelated_vacancy_is_rejected(self):
+        head = LINKEDIN_FULL_VISIBLE.split("<body>", 1)[0]
+        unrelated_linkedin = head + """<body><main>
+<h2>Meet the Team</h2>
+<p>At Cisco, the Software Engineer will develop payroll administration, employee benefits, tax reporting, and human resources information systems. The team maintains business applications that support compensation cycles, employee onboarding, leave management, and compliance reporting for global customers.</p>
+<h2>Your Impact</h2><ul>
+<li>Implement payroll calculation modules and configurable compensation policies.</li>
+<li>Integrate employee records with benefits enrollment, tax filing, and human resources platforms.</li>
+<li>Build reporting workflows for payroll reconciliation, audit trails, and statutory deductions.</li>
+<li>Investigate data discrepancies and resolve production defects in employee administration services.</li>
+</ul>
+<h2>Minimum Qualifications</h2><ul>
+<li>Experience building enterprise human resources or payroll applications.</li>
+<li>Knowledge of compensation processing, employee lifecycle workflows, and regulatory reporting.</li>
+<li>Proficiency in JavaScript or a similar application scripting language.</li>
+</ul></main></body></html>"""
+        official_result = {
+            "title": "Software Engineer | Cisco Careers",
+            "url": "https://cisco.wd5.myworkdayjobs.com/Cisco_Careers/job/Bangalore-India/Software-Engineer_2028048-1",
+            "description": "Cisco Software Engineer Bengaluru Karnataka India careers",
+        }
+        fetch_queue = [
+            (unrelated_linkedin, "https://www.linkedin.com/jobs/view/4477656621/"),
+            (OFFICIAL_CISCO_HTML, official_result["url"]),
+        ]
+
+        def fetch(url, timeout=15.0):
+            html, final_url = fetch_queue.pop(0)
+            return html, final_url, "text/html; charset=utf-8"
+
+        with (
+            patch("job_agent.jd_ingestion._load_brave_api_key", return_value="test-key"),
+            patch("job_agent.jd_ingestion._brave_search", return_value=[official_result]),
+            patch("job_agent.jd_ingestion._fetch_html", side_effect=fetch),
+        ):
+            job = ingest_job_url(
+                "https://www.linkedin.com/jobs/view/4477656621/",
+                force_recovery=True,
+            )
+        self.assertEqual(
+            job["source"]["jd_recovery"]["verification_status"],
+            "no_verified_match",
+        )
+        self.assertEqual(job["source"]["jd_extraction_status"], "visible_page")
+        self.assertFalse(job["source"].get("recovered_source_url"))
+        self.assertTrue(job["processing_ready"])
+
+    def test_cli_force_recovery_flag_is_forwarded(self):
+        job = {
+            "company": "Cisco",
+            "title": "Software Engineer",
+            "location": "Bengaluru, India",
+            "country": "IN",
+            "processing_ready": True,
+            "source": {
+                "jd_extraction_status": "visible_page",
+                "jd_extraction_method": "visible_page_text",
+                "processing_gate_reason": "ok",
+                "jd_recovery": {"attempted": True, "verification_status": "not_needed"},
+                "jd_extraction_warnings": [],
+            },
+            "job_description": {"description_text": "x" * 300, "responsibilities": [], "basic_qualifications": [], "preferred_qualifications": [], "summary": "x" * 300},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "job.json"
+            with patch("job_agent.jd_ingestion.ingest_job_url", return_value=job) as ingest:
+                code = main([
+                    "https://www.linkedin.com/jobs/view/4477656621/",
+                    "--output", str(output_path),
+                    "--force-recovery",
+                ])
+        self.assertEqual(code, 0)
+        self.assertTrue(ingest.call_args.kwargs["force_recovery"])
+
     def test_cli_can_smoke_test_brave_without_a_job_url(self):
         result = {
             "ok": True,
@@ -261,7 +377,7 @@ class JDIngestionTests(unittest.TestCase):
         self.assertNotIn("secret-test-key", json.dumps(result))
         self.assertEqual(search.call_args.args[1], "secret-test-key")
 
-    def test_metadata_only_uses_verified_company_careers_fallback(self):
+    def test_metadata_only_fallback_requires_manual_exact_vacancy_review(self):
         search_results = [
             {
                 "title": "Software Engineer | Cisco Careers",
@@ -289,21 +405,24 @@ class JDIngestionTests(unittest.TestCase):
         self.assertEqual(job["company"], "Cisco")
         self.assertEqual(job["title"], "Software Engineer")
         self.assertEqual(job["source"]["job_id"], "4477656621")
-        self.assertEqual(job["source"]["company_job_code"], "2028048")
-        self.assertEqual(job["source"]["jd_extraction_status"], "recovered_official")
+        self.assertIsNone(job["source"]["company_job_code"])
+        self.assertEqual(job["source"]["jd_extraction_status"], "needs_review")
         self.assertEqual(
-            job["source"]["jd_extraction_method"], "official_careers_fallback"
+            job["source"]["jd_extraction_method"], "official_careers_fallback_manual_review"
         )
-        self.assertTrue(job["processing_ready"])
+        self.assertFalse(job["processing_ready"])
         self.assertEqual(
             job["jd_url"], "https://www.linkedin.com/jobs/view/4477656621/"
         )
-        self.assertEqual(
-            job["source"]["verified_job_page_url"], search_results[0]["url"]
-        )
+        self.assertEqual(job["source"]["original_posting_url"], job["jd_url"])
+        self.assertIsNone(job["source"]["verified_job_page_url"])
         self.assertEqual(
             job["source"]["jd_recovery"]["verification_status"],
-            "verified_company_posting",
+            "manual_review_required",
+        )
+        self.assertEqual(
+            job["source"]["jd_recovery"]["manual_review_candidates"][0]["url"],
+            search_results[0]["url"],
         )
 
     def test_no_search_key_keeps_metadata_only_job_blocked(self):
@@ -413,11 +532,15 @@ class JDIngestionTests(unittest.TestCase):
             job = ingest_job_url("https://www.linkedin.com/jobs/view/4477656621/")
         self.assertEqual(job["company"], "Cisco")
         self.assertEqual(job["title"], "Software Engineer")
-        self.assertEqual(job["source"]["jd_extraction_status"], "recovered_official")
-        self.assertTrue(job["processing_ready"])
+        self.assertEqual(job["source"]["jd_extraction_status"], "needs_review")
+        self.assertFalse(job["processing_ready"])
         self.assertEqual(
             job["source"]["jd_recovery"]["verification_status"],
-            "verified_company_posting",
+            "manual_review_required",
+        )
+        self.assertEqual(
+            job["source"]["jd_recovery"]["manual_review_candidates"][0]["url"],
+            official_result["url"],
         )
 
     def test_official_fallback_with_wrong_city_is_rejected(self):

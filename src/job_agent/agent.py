@@ -6,7 +6,7 @@ import uuid
 from datetime import date, timedelta
 from typing import Any
 
-from .resolver import classify_intent, resolve_answer
+from .resolver import UNIVERSAL_PROFILE_INTENTS, classify_intent, resolve_answer
 from .scoring import score_job
 from .storage import (
     load_applications,
@@ -74,7 +74,7 @@ def _update_application_status(application: dict[str, Any], pending_data: dict[s
 # application-specific narrative fields are deliberately excluded.
 PROFILE_INTAKE_INTENTS = {
     "work_authorization", "sponsorship", "relocation", "notice_period",
-    "expected_compensation", "current_compensation",
+    "expected_compensation", "current_compensation", "ai_assisted_development",
 }
 
 
@@ -603,13 +603,16 @@ def answer_pending_question(question_id: str, answer: str, save_for_reuse: bool 
         bank = answer_bank.load_answer_bank()
         context = question.get("context", {})
         applicability = {}
-        # Keep a reusable answer scoped to the exact known country/employment type.
-        for key in ("country", "employment_type"):
-            if context.get(key):
-                applicability[key] = [context[key]]
+        # Capability facts such as professional AI-tool use are universal; do not
+        # accidentally scope them to the location of the job where they were asked.
+        # Employment/legal answers remain limited to the known job context.
+        if question["intent"] not in UNIVERSAL_PROFILE_INTENTS:
+            for key in ("country", "employment_type"):
+                if context.get(key):
+                    applicability[key] = [context[key]]
         if question["intent"] == "work_authorization" and "country" not in applicability:
             raise ValueError("Work-authorization reuse requires an applicability country.")
-        if not applicability:
+        if not applicability and question["intent"] not in UNIVERSAL_PROFILE_INTENTS:
             raise ValueError("Cannot reuse this answer without at least one known applicability dimension.")
         today = date.today()
         profile = __import__("job_agent.storage", fromlist=["load_profile"]).load_profile()
@@ -617,6 +620,7 @@ def answer_pending_question(question_id: str, answer: str, save_for_reuse: bool 
         record = {
             "id": f"ans_{uuid.uuid4().hex[:10]}",
             "intent": question["intent"],
+            "question": question["field_label"],
             "answer": answer,
             "status": "approved",
             "applicability": applicability,

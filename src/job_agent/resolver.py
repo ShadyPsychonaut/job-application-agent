@@ -16,7 +16,22 @@ KEYWORD_INTENTS = {
     "notice_period": ["notice period", "earliest joining", "earliest start", "available to join"],
     "relocation": ["relocate", "relocation"],
     "years_experience": ["years of experience", "how many years of experience"],
+    "ai_assisted_development": [
+        "ai coding assistant",
+        "ai-assisted development",
+        "ai assisted development",
+        "ai development tools",
+        "claude code",
+        "github copilot",
+        "copilot",
+        "cursor",
+    ],
 }
+
+# These are candidate capabilities rather than country/employer-specific form
+# answers. A user-approved record can be reused without guessing its relevance
+# from an application location or employment type.
+UNIVERSAL_PROFILE_INTENTS = {"ai_assisted_development"}
 
 
 def classify_intent(label: str, explicit_intent: str | None = None) -> str:
@@ -29,10 +44,12 @@ def classify_intent(label: str, explicit_intent: str | None = None) -> str:
     return "unknown"
 
 
-def _context_matches(applicability: dict[str, Any], context: dict[str, Any]) -> bool:
+def _context_matches(
+    applicability: dict[str, Any], context: dict[str, Any], *, intent: str = ""
+) -> bool:
     """Require every dimension recorded on an answer to be known and match."""
     if not applicability:
-        return False
+        return intent in UNIVERSAL_PROFILE_INTENTS
     for key, allowed_values in applicability.items():
         actual = context.get(key)
         if actual is None or actual == "":
@@ -84,7 +101,9 @@ def resolve_answer(
             continue
         if not record.get("answer"):
             continue
-        if not _context_matches(record.get("applicability", {}), context):
+        if not _context_matches(
+            record.get("applicability", {}), context, intent=intent
+        ):
             continue
         if not _is_fresh(record):
             continue

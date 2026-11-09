@@ -1099,7 +1099,12 @@ def _location_matches(
 
 
 def _validate_candidate(
-    parsed: dict[str, Any], *, company: str, title: str, location: str
+    parsed: dict[str, Any],
+    *,
+    company: str,
+    title: str,
+    location: str,
+    reference_description: str = "",
 ) -> tuple[bool, float, list[str]]:
     reasons: list[str] = []
     expected_company = _company_tokens(company)
@@ -1115,6 +1120,12 @@ def _validate_candidate(
         str(parsed.get("location", "")),
     )
     substantive = _description_is_substantive(parsed)
+    candidate_description = str(parsed.get("description_text") or "")
+    description_similarity = (
+        _similarity(reference_description, candidate_description)
+        if reference_description.strip() and candidate_description.strip()
+        else 0.0
+    )
     if company_ok:
         reasons.append("Employer matches the source listing.")
     else:
@@ -1135,14 +1146,38 @@ def _validate_candidate(
         )
     else:
         reasons.append("Candidate page did not expose a substantive job description.")
+    exact_description_match = bool(
+        reference_description.strip()
+        and candidate_description.strip()
+        and description_similarity >= 0.55
+    )
+    if exact_description_match:
+        reasons.append(
+            f"The recovered description has strong overlap with the original posting (similarity {description_similarity:.2f})."
+        )
+    elif not reference_description.strip():
+        reasons.append(
+            "The original posting did not expose its substantive description, so exact vacancy identity cannot be established automatically; manual review is required."
+        )
+    else:
+        reasons.append(
+            f"The recovered description does not sufficiently match the original posting (similarity {description_similarity:.2f}; 0.55 required)."
+        )
     confidence = (
-        0.38 * float(company_ok)
-        + 0.27 * title_score
-        + 0.15 * float(location_ok)
-        + 0.20 * float(substantive)
+        0.25 * float(company_ok)
+        + 0.20 * title_score
+        + 0.10 * float(location_ok)
+        + 0.15 * float(substantive)
+        + 0.30 * description_similarity
     )
     return (
-        bool(company_ok and title_score >= 0.5 and location_ok and substantive),
+        bool(
+            company_ok
+            and title_score >= 0.5
+            and location_ok
+            and substantive
+            and exact_description_match
+        ),
         round(confidence, 4),
         reasons,
     )
@@ -1213,6 +1248,7 @@ def _recover_from_official_page(
     country: str,
     api_key: str,
     timeout: float,
+    reference_description: str = "",
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     query_records: list[dict[str, Any]] = []
     candidates: dict[str, dict[str, Any]] = {}
@@ -1241,6 +1277,7 @@ def _recover_from_official_page(
     )[:8]
     checked: list[dict[str, Any]] = []
     valid: list[tuple[float, dict[str, Any], dict[str, Any], list[str]]] = []
+    manual_review_candidates: list[dict[str, Any]] = []
     for result in ranked[:5]:
         try:
             html, final_url, content_type = _fetch_html(result["url"], timeout=timeout)
@@ -1255,7 +1292,11 @@ def _recover_from_official_page(
                     "company_owned_domain_or_branded_ats"
                 )
             accepted, confidence, reasons = _validate_candidate(
-                parsed, company=company, title=title, location=location
+                parsed,
+                company=company,
+                title=title,
+                location=location,
+                reference_description=reference_description,
             )
             if parsed.get("company_identity_source"):
                 reasons.append(
@@ -1276,6 +1317,26 @@ def _recover_from_official_page(
             )
             if accepted:
                 valid.append((confidence, parsed, result, reasons))
+            elif not reference_description.strip() and any(
+                "exact vacancy identity cannot be established" in reason
+                for reason in reasons
+            ) and all(
+                marker in " ".join(reasons)
+                for marker in (
+                    "Employer matches",
+                    "Job title similarity",
+                    "Location matches",
+                    "A substantive job description",
+                )
+            ):
+                manual_review_candidates.append(
+                    {
+                        "title": result.get("title", ""),
+                        "url": final_url,
+                        "match_confidence": confidence,
+                        "reason": "Employer, title, location, and page completeness match, but the original JD text was unavailable for exact-vacancy comparison.",
+                    }
+                )
         except (JobIngestionError, OSError, ValueError) as exc:
             checked.append(
                 {
@@ -1296,7 +1357,25 @@ def _recover_from_official_page(
         "search_errors": errors,
     }
     if not valid:
-        recovery["verification_status"] = "no_verified_match"
+        if manual_review_candidates:
+            manual_review_candidates.sort(
+                key=lambda item: item.get("match_confidence", 0.0), reverse=True
+            )
+            recovery["manual_review_candidates"] = manual_review_candidates
+            if (
+                len(manual_review_candidates) > 1
+                and manual_review_candidates[0].get("match_confidence", 0.0)
+                - manual_review_candidates[1].get("match_confidence", 0.0)
+                < 0.10
+            ):
+                recovery["verification_status"] = "ambiguous_match"
+                recovery["ambiguity_note"] = (
+                    "Multiple official/company ATS pages match the visible identity, but the original description is unavailable for exact-vacancy comparison. No candidate was selected automatically."
+                )
+            else:
+                recovery["verification_status"] = "manual_review_required"
+        else:
+            recovery["verification_status"] = "no_verified_match"
         return None, recovery
     if len(valid) > 1 and (valid[0][0] - valid[1][0]) < 0.10:
         recovery["verification_status"] = "ambiguous_match"
@@ -1309,6 +1388,7 @@ def _recover_from_official_page(
         {
             "verification_status": "verified_company_posting",
             "recovered_from_url": parsed["final_url"],
+            "recovered_source_url": parsed["final_url"],
             "recovered_page_title": result.get("title", ""),
             "recovered_job_id": parsed.get("job_id"),
             "match_confidence": confidence,
@@ -1371,6 +1451,7 @@ def ingest_job_url(
     timeout: float = 15.0,
     search_fallback: bool = True,
     search_api_key: str | None = None,
+    force_recovery: bool = False,
 ) -> dict[str, Any]:
     """Fetch a job page, then recover from a verified company/ATS page if needed.
 
@@ -1417,7 +1498,11 @@ def ingest_job_url(
     identity_complete = bool(
         parsed.get("title") and parsed.get("company") and parsed.get("location")
     )
-    if not initial_complete or not identity_complete:
+    if force_recovery:
+        warnings.append(
+            "Forced Brave recovery was requested; the original posting is retained for comparison even when its extraction succeeded."
+        )
+    if force_recovery or not initial_complete or not identity_complete:
         if not initial_complete:
             warnings.append(
                 "The original posting did not expose a substantive job description; metadata snippets are not treated as the full JD."
@@ -1471,6 +1556,7 @@ def ingest_job_url(
                         country=parsed.get("country", ""),
                         api_key=key,
                         timeout=timeout,
+                        reference_description=parsed.get("description_text", ""),
                     )
                     if identity_recovery:
                         recovery["identity_recovery"] = identity_recovery
@@ -1488,7 +1574,7 @@ def ingest_job_url(
                     recovery["attempted"] = True
                 else:
                     warnings.append(
-                        "No unambiguous official company/ATS posting with a matching employer, title, and location was verified."
+                        "No exact official company/ATS vacancy match was verified. A title/company/location match alone is insufficient; manually review any candidate page recorded in the recovery details."
                     )
         else:
             warnings.append("Official-careers fallback was disabled by configuration.")
@@ -1527,6 +1613,9 @@ def ingest_job_url(
     elif recovery.get("verification_status") == "ambiguous_match":
         extraction_method = "official_careers_fallback_ambiguous"
         extraction_status = "ambiguous_match"
+    elif recovery.get("verification_status") == "manual_review_required":
+        extraction_method = "official_careers_fallback_manual_review"
+        extraction_status = "needs_review"
     elif parsed.get("method") == "schema_org_jobposting_jsonld":
         extraction_method = parsed["method"]
         extraction_status = (
@@ -1573,6 +1662,7 @@ def ingest_job_url(
         "source": {
             "platform": source_platform,
             "source_search_url": str(url),
+            "original_posting_url": normalized_url,
             "job_id": url_job_id or parsed.get("job_id"),
             # Never copy the LinkedIn job ID into the employer requisition field.
             "company_job_code": parsed.get("company_job_code"),
@@ -1590,6 +1680,7 @@ def ingest_job_url(
             "verified_job_page_url": parsed.get("final_url")
             if extraction_status == "recovered_official"
             else None,
+            "recovered_source_url": recovery.get("recovered_source_url"),
             "seniority_level": parsed.get("seniority_level"),
             "jd_recovery": recovery,
         },
@@ -1632,6 +1723,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Disable automatic official-careers/ATS search fallback",
     )
     parser.add_argument(
+        "--force-recovery",
+        action="store_true",
+        help=(
+            "Always run Brave/official-careers recovery, even when the original "
+            "posting is already extractable; compare the recovered description "
+            "against the original before accepting it."
+        ),
+    )
+    parser.add_argument(
         "--test-brave",
         action="store_true",
         help="Send a small live query to verify BRAVE_SEARCH_API_KEY and API access",
@@ -1669,7 +1769,10 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--output is required when ingesting a job URL.")
 
         job = ingest_job_url(
-            args.url, timeout=args.timeout, search_fallback=not args.no_search_fallback
+            args.url,
+            timeout=args.timeout,
+            search_fallback=not args.no_search_fallback,
+            force_recovery=args.force_recovery,
         )
         output_path = Path(args.output).expanduser()
         if not output_path.is_absolute():

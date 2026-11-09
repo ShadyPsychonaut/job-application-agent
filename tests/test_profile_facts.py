@@ -15,6 +15,8 @@ from job_agent.resume_ingestion import load_resume_documents  # noqa: E402
 class ProfileFactsTests(unittest.TestCase):
     def test_extracts_education_and_experience_from_saved_resume(self):
         docs = load_resume_documents()
+        if not docs["documents"]:
+            self.skipTest("Resume documents are not included in this source archive.")
         facts = extract_candidate_facts(docs["documents"])
         education = facts["extracted_facts"]["education"]
         self.assertTrue(education)
