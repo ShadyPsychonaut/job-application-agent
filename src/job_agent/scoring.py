@@ -565,7 +565,7 @@ def _mentoring_requirement_is_soft(job: dict[str, Any], text: str) -> bool:
     mentorship = r"(?:mentor\w*|coach\w*)"
     soft = (
         r"as needed|when needed|if needed|as required|when required|if required|"
-        r"preferred|nice[- ]to[- ]have|a plus|bonus|may be asked to|may occasionally"
+        r"optional|preferred|nice[- ]to[- ]have|a plus|bonus|may be asked to|may occasionally"
     )
     hard = (
         r"must|required|mandatory|at least|responsible for|expected to|"
@@ -594,6 +594,192 @@ def _mentoring_requirement_is_soft(job: dict[str, Any], text: str) -> bool:
             if not is_preferred_item or has_hard:
                 return False
     return True
+
+
+def _jd_requires_mentoring(job: dict[str, Any], text: str) -> bool:
+    """Whether mentoring/coaching is a real JD requirement, not a soft aside.
+
+    Mentoring is not a candidate gap when the JD does not mention it, or when
+    every mention is explicitly optional/as-needed/preferred. A separate hard
+    requirement still survives even if another clause is soft.
+    """
+    has_mentoring_reference = bool(re.search(r"\b(?:mentor\w*|coach\w*)\b", text, re.I))
+    return has_mentoring_reference and not _mentoring_requirement_is_soft(job, text)
+
+
+_MENTORING_GAP_RE = re.compile(r"\b(?:mentor\w*|coach\w*)\b", re.I)
+
+
+_DSA_GENERIC_RE = re.compile(
+    r"\b(?:dsa|data[\s-]+structures?(?:\s*(?:and|&|/)\s*algorithms?)?|"
+    r"algorithms?(?:\s*(?:and|&|/)\s*data[\s-]+structures?))\b",
+    re.I,
+)
+_DSA_SPECIFIC_RE = re.compile(
+    r"\b(?:graph(?:s|\s+traversal)?|bfs|dfs|a\*|hybrid a\*|dynamic programming|"
+    r"sorting|binary search|trie|heap|hash table|union[- ]find|topological sort|"
+    r"shortest path|backtracking|greedy algorithm|divide and conquer|segment tree|"
+    r"time complexity|space complexity|big[- ]o|amortized complexity)\b",
+    re.I,
+)
+
+
+def _is_generic_dsa_reference(value: str) -> bool:
+    """Match a generic DSA expectation, but not a named algorithm/structure.
+
+    Specific algorithmic requirements (for example graph algorithms, BFS/DFS,
+    dynamic programming, or complexity analysis) remain independently assessable.
+    """
+    return bool(_DSA_GENERIC_RE.search(value)) and not bool(
+        _DSA_SPECIFIC_RE.search(value)
+    )
+
+
+def _has_professional_production_software_experience(
+    profile: dict[str, Any], resume_documents: list[dict[str, Any]] | None = None
+) -> bool:
+    """Detect experienced candidates whose production coding work implies DSA use.
+
+    This intentionally requires both non-zero professional experience and
+    evidence connecting software development with production systems. Merely
+    having a degree, internship/project work, or a configured years count is not
+    sufficient on its own.
+    """
+    candidate = profile.get("candidate_profile", {})
+    try:
+        years = float(candidate.get("years_experience", 0) or 0)
+    except (TypeError, ValueError):
+        years = 0.0
+    if years <= 0:
+        return False
+
+    evidence_parts = candidate.get("evidence_notes", [])
+    if isinstance(evidence_parts, str):
+        evidence_parts = [evidence_parts]
+    text_parts = [str(item) for item in evidence_parts]
+    for key in ("professional_experience", "experience_summary", "work_history"):
+        value = candidate.get(key)
+        if isinstance(value, str):
+            text_parts.append(value)
+        elif isinstance(value, list):
+            text_parts.extend(str(item) for item in value)
+    for document in resume_documents or []:
+        text_parts.append(str(document.get("text", "")))
+    evidence_text = "\n".join(text_parts)
+
+    has_production_context = bool(
+        re.search(
+            r"\b(?:production|deployed|live\s+systems?|customer[- ]facing\s+systems?)\b",
+            evidence_text,
+            re.I,
+        )
+    )
+    has_software_development_context = bool(
+        re.search(
+            r"\b(?:software|programming|codebase|coding|C\+\+|Java|Python|backend|distributed\s+systems?|software\s+services?)\b",
+            evidence_text,
+            re.I,
+        )
+    )
+    return has_production_context and has_software_development_context
+
+
+def _filter_nonrequired_mentoring_gaps(
+    items: list[str], job: dict[str, Any], text: str | None = None
+) -> list[str]:
+    """Drop mentoring/coaching gap claims unless the JD actually requires them."""
+    jd_text = text if text is not None else _job_text(job)
+    if _jd_requires_mentoring(job, jd_text):
+        return items
+    return [
+        item
+        for item in items
+        if not isinstance(item, str) or not _MENTORING_GAP_RE.search(item)
+    ]
+
+
+def _filter_optional_mentoring_summary(summary: str, job: dict[str, Any]) -> str:
+    """Remove unsupported negative mentoring claims from the LLM narrative."""
+    if not summary or _jd_requires_mentoring(job, _job_text(job)):
+        return summary
+    cleaned = re.sub(
+        r"\b(?:no|lack of|lacks|missing|limited|insufficient|absence of)\s+"
+        r"(?:(?:clear|documented|demonstrated)\s+)*"
+        r"mentoring(?:\s*(?:/|or|and)\s*coaching)?"
+        r"(?:\s*(?:or|and)\s*feature[- ]lead)?(?:\s+experience)?\b",
+        "",
+        summary,
+        flags=re.I,
+    )
+    cleaned = re.sub(r"\s+,\s*,", ",", cleaned)
+    cleaned = re.sub(r"\b(include|including)\s*,\s*", r"\1 ", cleaned, flags=re.I)
+    cleaned = re.sub(r",\s+and\s+", " and ", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"\(\s*\)", "", cleaned)
+    return cleaned.strip(" ,;")
+
+
+def _filter_generic_dsa_gaps(
+    items: list[str], *, infer_from_production_experience: bool
+) -> list[str]:
+    """Suppress generic DSA documentation gaps for experienced production coders."""
+    if not infer_from_production_experience:
+        return items
+    return [
+        item
+        for item in items
+        if not isinstance(item, str) or not _is_generic_dsa_reference(item)
+    ]
+
+
+def _calibrate_dsa_evidence_map(
+    evidence_map: list[dict[str, Any]], *, infer_from_production_experience: bool
+) -> list[dict[str, Any]]:
+    """Treat professional production coding as indirect evidence of foundational DSA."""
+    if not infer_from_production_experience:
+        return evidence_map
+    calibrated: list[dict[str, Any]] = []
+    for raw_item in evidence_map:
+        item = dict(raw_item) if isinstance(raw_item, dict) else raw_item
+        if (
+            isinstance(item, dict)
+            and _is_generic_dsa_reference(str(item.get("requirement", "")))
+            and item.get("assessment") in {"missing", "unclear"}
+        ):
+            item["assessment"] = "partial"
+            item["resume_evidence"] = (
+                "Indirectly supported by professional production-software development; "
+                "specific DSA depth or named algorithm expertise is not separately documented."
+            )
+        calibrated.append(item)
+    return calibrated
+
+
+def _remove_generic_dsa_gap_language(
+    summary: str, *, infer_from_production_experience: bool
+) -> str:
+    """Remove generic DSA absence claims while retaining other gap statements."""
+    if not summary or not infer_from_production_experience:
+        return summary
+    patterns = (
+        r"\b(?:no\s+(?:(?:explicit|documented|clear)\s+)?(?:evidence\s+of\s+)?)"
+        r"(?:documented\s+|demonstrated\s+)?(?:data[\s-]+structures?(?:\s*(?:and|&|/)\s*algorithms?)?|dsa)"
+        r"(?:\s+(?:knowledge|proficiency|expertise|depth|experience|skills?))?\b",
+        r"\b(?:lack of|lacks?|missing|limited|insufficient(?:\s+evidence\s+of)?)\s+"
+        r"(?:documented\s+|demonstrated\s+)?(?:data[\s-]+structures?(?:\s*(?:and|&|/)\s*algorithms?)?|dsa)"
+        r"(?:[\s-]+(?:knowledge|proficiency|expertise|depth|experience|skills?))?\b",
+        r"\bdepth of (?:data[\s-]+structures?(?:\s*(?:and|&|/)\s*algorithms?)?|dsa)"
+        r"(?:[\s-]+(?:expertise|knowledge|proficiency))?\s+(?:remains?\s+)?unclear\b",
+    )
+    cleaned = summary
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.I)
+    cleaned = re.sub(r"\s+,\s*,", ",", cleaned)
+    cleaned = re.sub(r"\b(include|including)\s*,\s*", r"\1 ", cleaned, flags=re.I)
+    cleaned = re.sub(r",\s+and\s+", " and ", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"\(\s*\)", "", cleaned)
+    return cleaned.strip(" ,;")
 
 
 def _ai_tool_requirement_is_preferred(job: dict[str, Any], text: str) -> bool:
@@ -1176,6 +1362,10 @@ def _score_job_rules(job: dict[str, Any], profile: dict[str, Any]) -> dict[str, 
     candidate = profile.get("candidate_profile", {})
     evidence = candidate.get("evidence_strength", {})
     text = _job_text(job)
+    infer_dsa_from_production_experience = bool(
+        candidate.get("professional_production_software_experience", False)
+        or _has_professional_production_software_experience(profile)
+    )
 
     tech_matches = _matched_topics(text, SKILL_TOPICS)
     tech_matches = _collapse_satisfied_language_alternatives(
@@ -1193,9 +1383,7 @@ def _score_job_rules(job: dict[str, Any], profile: dict[str, Any]) -> dict[str, 
     resp_matches = _matched_topics(text, RESPONSIBILITY_TOPICS)
     if _mentoring_requirement_is_soft(job, text):
         resp_matches = [
-            (key, topic)
-            for key, topic in resp_matches
-            if key != "mentoring_leadership"
+            (key, topic) for key, topic in resp_matches if key != "mentoring_leadership"
         ]
     responsibility_strength = candidate.get("responsibility_strength", {})
     responsibility_score, resp_details, resp_gaps = _weighted_strength_score(
@@ -1237,6 +1425,11 @@ def _score_job_rules(job: dict[str, Any], profile: dict[str, Any]) -> dict[str, 
         dict.fromkeys(
             tech_gaps + resp_gaps + experience_flags + eligibility.get("flags", [])
         )
+    )
+    all_gaps = _filter_nonrequired_mentoring_gaps(all_gaps, job, text)
+    all_gaps = _filter_generic_dsa_gaps(
+        all_gaps,
+        infer_from_production_experience=infer_dsa_from_production_experience,
     )
     matched = [x["topic"] for x in tech_details if x["profile_strength"] >= 0.5]
     responsibility_matches = [
@@ -1463,7 +1656,11 @@ def _collapse_satisfied_language_alternatives(
     collapsed: list[tuple[str, dict[str, Any]]] = []
     for key, topic in matches:
         language = next(
-            (name for name, topic_key in _LANGUAGE_TOPIC_KEYS.items() if topic_key == key),
+            (
+                name
+                for name, topic_key in _LANGUAGE_TOPIC_KEYS.items()
+                if topic_key == key
+            ),
             None,
         )
         if (
@@ -1578,6 +1775,11 @@ def score_job(
     documents = resume_data.get("documents", [])
     facts = persist_candidate_facts(documents)
     scoring_profile = apply_extracted_facts(base_profile, facts)
+    # Derive this locally from professional experience evidence. It is supplied
+    # to the LLM as a calibration signal, not saved back into candidate files.
+    scoring_profile.setdefault("candidate_profile", {})[
+        "professional_production_software_experience"
+    ] = _has_professional_production_software_experience(scoring_profile, documents)
     # Treat the user-approved professional Claude Code answer as evidence for
     # AI-assisted development, without inserting it into the resume or
     # inferring particular use cases/workflows.
@@ -1706,8 +1908,22 @@ def score_job(
         os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
         or "llama-3.3-70b-versatile"
     )
-    scorecard["llm_summary"] = assessment.get("summary", "")
-    scorecard["evidence_map"] = assessment.get("evidence_map", [])
+    infer_dsa_from_production_experience = bool(
+        scoring_profile.get("candidate_profile", {}).get(
+            "professional_production_software_experience", False
+        )
+    )
+    scorecard["llm_summary"] = _filter_optional_mentoring_summary(
+        str(assessment.get("summary", "")), job
+    )
+    scorecard["llm_summary"] = _remove_generic_dsa_gap_language(
+        scorecard["llm_summary"],
+        infer_from_production_experience=infer_dsa_from_production_experience,
+    )
+    scorecard["evidence_map"] = _calibrate_dsa_evidence_map(
+        assessment.get("evidence_map", []),
+        infer_from_production_experience=infer_dsa_from_production_experience,
+    )
     if not include_resume_text:
         # The model only received local profile facts; do not label this evidence as resume-quoted.
         for evidence_item in scorecard["evidence_map"]:
@@ -1717,18 +1933,36 @@ def score_job(
     # eligibility gate. Ignore model-generated claims on this topic and retain
     # the gate's own flags already present in the rules scorecard.
     scorecard["uncertainties"] = _merge_unique(
-        _remove_false_alternative_language_gaps(
-            _remove_llm_eligibility_claims(assessment.get("uncertainties", [])),
+        _filter_nonrequired_mentoring_gaps(
+            _filter_generic_dsa_gaps(
+                _remove_false_alternative_language_gaps(
+                    _remove_llm_eligibility_claims(assessment.get("uncertainties", [])),
+                    job,
+                ),
+                infer_from_production_experience=infer_dsa_from_production_experience,
+            ),
             job,
         )
     )
-    llm_gaps = _remove_false_alternative_language_gaps(
-        _remove_llm_eligibility_claims(assessment.get("gaps_and_flags", [])),
+    llm_gaps = _filter_nonrequired_mentoring_gaps(
+        _filter_generic_dsa_gaps(
+            _remove_false_alternative_language_gaps(
+                _remove_llm_eligibility_claims(assessment.get("gaps_and_flags", [])),
+                job,
+            ),
+            infer_from_production_experience=infer_dsa_from_production_experience,
+        ),
         job,
     )
     scorecard["gaps_and_flags"] = _merge_unique(
-        _remove_false_alternative_language_gaps(
-            scorecard.get("gaps_and_flags", []), job
+        _filter_nonrequired_mentoring_gaps(
+            _filter_generic_dsa_gaps(
+                _remove_false_alternative_language_gaps(
+                    scorecard.get("gaps_and_flags", []), job
+                ),
+                infer_from_production_experience=infer_dsa_from_production_experience,
+            ),
+            job,
         ),
         llm_gaps,
         scorecard.get("uncertainties", []),

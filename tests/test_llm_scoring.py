@@ -231,6 +231,9 @@ class LLMScoringTests(unittest.TestCase):
         self.assertEqual(parsed, {"summary": "ok"})
 
     def test_groq_request_uses_chat_completions_and_json_object_mode(self):
+        self.profile["candidate_profile"][
+            "professional_production_software_experience"
+        ] = True
         assessment = {
             "component_scores": {
                 "technical_skills": 9.0,
@@ -276,26 +279,28 @@ class LLMScoringTests(unittest.TestCase):
             ) as mocked,
             patch(
                 "job_agent.llm_scoring.load_answer_bank",
-                return_value={"answers": [
-                    {
-                        "intent": "ai_assisted_development",
-                        "question": "Have you used AI coding assistants professionally?",
-                        "answer": "Yes. I have used Claude Code in my professional software development work.",
-                        "status": "approved",
-                    },
-                    {
-                        "intent": "work_authorization",
-                        "question": "Are you authorized to work in the US?",
-                        "answer": "No, sponsorship required.",
-                        "status": "approved",
-                    },
-                    {
-                        "intent": "expected_compensation",
-                        "question": "Expected compensation?",
-                        "answer": "987654321 INR",
-                        "status": "approved",
-                    },
-                ]},
+                return_value={
+                    "answers": [
+                        {
+                            "intent": "ai_assisted_development",
+                            "question": "Have you used AI coding assistants professionally?",
+                            "answer": "Yes. I have used Claude Code in my professional software development work.",
+                            "status": "approved",
+                        },
+                        {
+                            "intent": "work_authorization",
+                            "question": "Are you authorized to work in the US?",
+                            "answer": "No, sponsorship required.",
+                            "status": "approved",
+                        },
+                        {
+                            "intent": "expected_compensation",
+                            "question": "Expected compensation?",
+                            "answer": "987654321 INR",
+                            "status": "approved",
+                        },
+                    ]
+                },
             ),
         ):
             result = score_with_groq(
@@ -311,6 +316,9 @@ class LLMScoringTests(unittest.TestCase):
         self.assertEqual(request_payload["model"], "llama-3.3-70b-versatile")
         self.assertEqual(request_payload["response_format"], {"type": "json_object"})
         user_context = request_payload["messages"][1]["content"]
+        self.assertIn(
+            "assess the experience as unclear rather than missing", user_context
+        )
         self.assertIn("Claude Code", user_context)
         self.assertIn("approved_application_answer_facts", user_context)
         self.assertNotIn("work_authorization", user_context)
@@ -318,8 +326,20 @@ class LLMScoringTests(unittest.TestCase):
         self.assertNotIn("987654321", user_context)
         self.assertIn("as needed", user_context)
         self.assertIn("preferred AI-tool", user_context)
-        submitted = json.loads(user_context.split("Evaluate the following job and candidate data:\n", 1)[1])
-        submitted_facts = submitted["candidate_profile_configured_facts"]["approved_application_answer_facts"]
+        system_instructions = request_payload["messages"][0]["content"]
+        self.assertIn(
+            "For experienced candidates with professional production-software experience",
+            system_instructions,
+        )
+        self.assertIn("foundational applied DSA", system_instructions)
+        submitted = json.loads(
+            user_context.split("Evaluate the following job and candidate data:\n", 1)[1]
+        )
+        candidate_facts_context = submitted["candidate_profile_configured_facts"]
+        self.assertTrue(
+            candidate_facts_context["professional_production_software_experience"]
+        )
+        submitted_facts = candidate_facts_context["approved_application_answer_facts"]
         self.assertEqual(len(submitted_facts), 1)
         self.assertEqual(submitted_facts[0]["intent"], "ai_assisted_development")
 
